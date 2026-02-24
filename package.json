@@ -1,0 +1,19 @@
+{
+  "name": "peach-browser",
+  "version": "1.0.0",
+  "description": "Media file management and browsing web application",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js"
+  },
+  "dependencies": {
+    "sql.js": "^1.10.2",
+    "express": "^4.18.2",
+    "multer": "^1.4.5-lts.1",
+    "uuid": "^9.0.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "trash": "^8.0.0"
+  }
+}

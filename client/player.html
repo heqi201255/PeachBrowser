@@ -1,0 +1,1789 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PeachBrowser Player</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    body {
+      margin: 0;
+      background: #000;
+      overflow: hidden;
+    }
+    
+    .player-page {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    
+    .player-header {
+      display: flex;
+      align-items: center;
+      padding: 12px 16px;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border-color);
+      gap: 16px;
+    }
+    
+    .player-header-title {
+      flex: 1;
+      font-size: 16px;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    .player-content {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+    
+    .player-sidebar {
+      width: 280px;
+      background: var(--bg-sidebar);
+      display: flex;
+      flex-direction: column;
+      transition: width 0.3s;
+      overflow: hidden;
+    }
+    
+    .player-sidebar.collapsed {
+      width: 40px;
+    }
+    
+    .player-sidebar-header {
+      padding: 12px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    
+    .player-sidebar-header h3 {
+      font-size: 14px;
+      color: var(--text-primary);
+      margin: 0;
+    }
+    
+    .player-sidebar.collapsed .player-sidebar-header h3,
+    .player-sidebar.collapsed .playlist {
+      display: none;
+    }
+    
+    .sidebar-toggle {
+      width: 28px;
+      height: 28px;
+      background: var(--bg-dark);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      color: var(--text-primary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    
+    .sidebar-toggle:hover {
+      border-color: var(--primary-color);
+    }
+    
+    .playlist {
+      flex: 1;
+      overflow-y: auto;
+    }
+    
+    .playlist-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border-color);
+      transition: background 0.2s;
+    }
+    
+    .playlist-item:hover {
+      background: var(--bg-dark);
+    }
+    
+    .playlist-item.active {
+      background: rgba(255, 159, 67, 0.15);
+      border-left: 3px solid var(--primary-color);
+    }
+    
+    .playlist-item-thumb {
+      width: 64px;
+      height: 36px;
+      background: var(--bg-dark);
+      border-radius: 4px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    
+    .playlist-item-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    .playlist-item-thumb .placeholder {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+    
+    .playlist-item-info {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .playlist-item-title {
+      font-size: 12px;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    .playlist-item-meta {
+      font-size: 10px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+    
+    .player-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #000;
+      min-width: 0;
+    }
+    
+    .player-video-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      background: #000;
+      min-height: 0;
+    }
+    
+    .player-video-container video,
+    .player-video-container img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    
+    .player-controls-bar {
+      background: rgba(0, 0, 0, 0.8);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    
+    .player-title {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+    
+    .player-details {
+      width: 280px;
+      background: var(--bg-card);
+      border-left: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      transition: width 0.3s;
+      overflow: hidden;
+    }
+    
+    .player-details.collapsed {
+      width: 40px;
+    }
+    
+    .player-details.collapsed .player-details-content {
+      display: none;
+    }
+    
+    .player-details-header {
+      padding: 12px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    
+    .player-details-header h3 {
+      font-size: 14px;
+      color: var(--text-primary);
+      margin: 0;
+    }
+    
+    .player-details-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+    
+    .detail-section {
+      margin-bottom: 16px;
+    }
+    
+    .detail-section h4 {
+      font-size: 11px;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+    
+    .detail-section .value {
+      font-size: 13px;
+      color: var(--text-primary);
+      word-break: break-all;
+    }
+    
+    .detail-section .rating-input {
+      display: flex;
+      gap: 4px;
+      font-size: 20px;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+    
+    .detail-section .rating-star {
+      transition: color 0.2s;
+    }
+    
+    .detail-section .rating-star:hover,
+    .detail-section .rating-star.active {
+      color: var(--primary-color);
+    }
+    
+    .back-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: transparent;
+      border: none;
+      color: var(--text-primary);
+      font-size: 14px;
+      cursor: pointer;
+      padding: 6px 12px;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+    
+    .back-btn:hover {
+      background: var(--bg-dark);
+    }
+    
+    .close-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-primary);
+      font-size: 20px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+      opacity: 0.7;
+      transition: opacity 0.2s;
+    }
+    
+    .close-btn:hover {
+      opacity: 1;
+      background: var(--bg-dark);
+    }
+    
+    .keyboard-shortcuts {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.8);
+      padding: 12px 24px;
+      border-radius: 8px;
+      color: white;
+      font-size: 14px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      z-index: 100;
+    }
+    
+    .keyboard-shortcuts.show {
+      opacity: 1;
+    }
+    
+    @media (max-width: 768px) {
+      .player-sidebar, .player-details {
+        display: none;
+      }
+      
+      .player-page {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: #000;
+      }
+      
+      .player-header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+        padding: 16px;
+        border-bottom: none;
+        opacity: 1;
+        transition: opacity 0.3s;
+      }
+      
+      .player-header.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      
+      .player-header-title {
+        font-size: 14px;
+        max-width: calc(100% - 60px);
+      }
+      
+      .player-content {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+      }
+      
+      .player-main {
+        position: relative;
+        width: 100%;
+        height: 100%;
+      }
+      
+      .player-video-container {
+        width: 100%;
+        height: 100%;
+      }
+      
+      .player-video-container video {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+      
+      .swipe-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        overflow: hidden;
+      }
+      
+      .swipe-item {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #000;
+        will-change: transform;
+        z-index: 1;
+        overflow: hidden;
+      }
+      
+      .swipe-item.active {
+        z-index: 10;
+      }
+      
+      .swipe-item.prev {
+        transform: translateY(-100%);
+        z-index: 5;
+      }
+      
+      .swipe-item.next {
+        transform: translateY(100%);
+        z-index: 5;
+      }
+      
+      .swipe-item video {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        background: #000;
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 2;
+        transform: translateZ(0);
+        backface-visibility: hidden;
+        -webkit-backface-visibility: hidden;
+        opacity: 0;                 /* 新增：初始不可见，避免尺寸抖动 */
+        transition: opacity 0.2s ease;
+      }
+      .swipe-item video::-webkit-media-controls {
+        display: none !important;
+      }
+      .swipe-item video.loaded {
+        opacity: 1;                 /* 元数据就绪或开始播放再显示 */
+      }
+      
+      /* 普通图片（非缩略图）也改为 contain，切换时风格一致 */
+      .swipe-item img:not(.swipe-item-thumbnail) {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;        /* 修改：与视频一致 */
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 2;
+      }
+      
+      .swipe-item-thumbnail {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;        /* 修改：与视频一致，避免“铺满→缩小” */
+        background: #000;
+        z-index: 1;
+        opacity: 1;
+        transition: opacity 0.2s ease-in-out;
+        transform: translateZ(0);
+        backface-visibility: hidden;
+        -webkit-backface-visibility: hidden;
+      }
+      
+      .swipe-item-thumbnail.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      
+      .swipe-item video.loaded ~ .swipe-item-thumbnail {
+        opacity: 0;
+      }
+      
+      .video-overlay {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 50;
+        background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+        padding: 60px 16px 20px;
+        opacity: 1;
+        transition: opacity 0.3s;
+      }
+      
+      .video-overlay.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      
+      .video-info {
+        color: white;
+        text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+      }
+      
+      .video-info h3 {
+        font-size: 14px;
+        margin-bottom: 8px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+      }
+      
+      .progress-bar-container {
+        width: 100%;
+        height: 4px;
+        background: rgba(255,255,255,0.3);
+        border-radius: 2px;
+        margin-bottom: 12px;
+        cursor: pointer;
+        position: relative;
+      }
+      
+      .progress-bar {
+        height: 100%;
+        background: var(--primary-color);
+        border-radius: 2px;
+        width: 0%;
+        transition: width 0.1s linear;
+      }
+      
+      .progress-bar-buffered {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        background: rgba(255,255,255,0.4);
+        border-radius: 2px;
+        width: 0%;
+      }
+      
+      .time-display {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        color: rgba(255,255,255,0.8);
+        margin-bottom: 8px;
+      }
+      
+      .video-actions {
+        position: fixed;
+        right: 12px;
+        bottom: 140px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        z-index: 50;
+        opacity: 1;
+        transition: opacity 0.3s;
+      }
+      
+      .video-actions.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      
+      .action-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        color: white;
+        font-size: 10px;
+        gap: 4px;
+      }
+      
+      .action-btn .icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.15);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+      }
+      
+      .play-pause-overlay {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 80px;
+        color: rgba(255,255,255,0.6);
+        opacity: 0;
+        transition: opacity 0.3s;
+        pointer-events: none;
+        z-index: 60;
+      }
+      
+      .play-pause-overlay.show {
+        opacity: 1;
+      }
+      
+      .seek-indicator {
+        position: fixed;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 48px;
+        color: rgba(255,255,255,0.8);
+        opacity: 0;
+        transition: opacity 0.2s;
+        pointer-events: none;
+        z-index: 60;
+        text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+      }
+      
+      .seek-indicator.left {
+        left: 40px;
+      }
+      
+      .seek-indicator.right {
+        right: 40px;
+      }
+      
+      .seek-indicator.show {
+        opacity: 1;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="player-page">
+    <div class="player-header">
+      <button class="back-btn" id="backBtn">← 返回</button>
+      <div class="player-header-title" id="playerTitle">Loading...</div>
+    </div>
+    
+    <div class="player-content">
+      <div class="player-sidebar" id="playlistSidebar">
+        <div class="player-sidebar-header">
+          <h3>播放列表</h3>
+          <button class="sidebar-toggle" id="togglePlaylist">◀</button>
+        </div>
+        <div class="playlist" id="playlist"></div>
+      </div>
+      
+      <div class="player-main">
+        <div class="player-video-container" id="videoContainer"></div>
+      </div>
+      
+      <div class="player-details collapsed" id="detailsSidebar">
+        <div class="player-details-header">
+          <h3>详情</h3>
+          <button class="sidebar-toggle" id="toggleDetails">▶</button>
+        </div>
+        <div class="player-details-content" id="detailsContent"></div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="keyboard-shortcuts" id="shortcuts">
+    ↑ 上一个 | ↓ 下一个 | ← 后退5秒 | → 前进5秒 | 空格 播放/暂停 | ESC 退出
+  </div>
+  
+  <script src="js/api.js"></script>
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const mediaId = parseInt(urlParams.get('mediaId'));
+    const libraryId = parseInt(urlParams.get('libraryId'));
+    const token = urlParams.get('token');
+    const returnUrl = urlParams.get('returnUrl');
+    
+    if (token) {
+      api.setToken(token);
+    }
+    
+    const isMobile = () => window.matchMedia('(max-width: 768px)').matches || 
+                            'ontouchstart' in window || 
+                            navigator.maxTouchPoints > 0;
+    
+    let currentMedia = null;
+    let playlist = [];
+    let currentIndex = 0;
+    let videoElement = null;
+    let currentVideoListeners = null;
+    
+    async function init() {
+      try {
+        currentMedia = await api.getMediaDetail(mediaId);
+        
+        const mediaList = await api.getMedia(libraryId, { 
+          path: getDirectoryPath(currentMedia.relative_path),
+          pageSize: 1000 
+        });
+        
+        playlist = mediaList.media.filter(m => m.file_type === 'video' || m.file_type === 'image');
+        currentIndex = playlist.findIndex(m => m.id === mediaId);
+        
+        // 确保当前媒体有 thumbnailUrl
+        if (currentMedia && !currentMedia.thumbnailUrl && currentMedia.has_thumbnail) {
+          currentMedia.thumbnailUrl = `/api/libraries/${libraryId}/thumbnails/${encodeURIComponent(currentMedia.relative_path.replace(/\.[^.]+$/, '.jpg'))}?token=${token || api.getToken()}`;
+        }
+        
+        // 确保播放列表中的媒体都有 thumbnailUrl
+        playlist.forEach(item => {
+          if (!item.thumbnailUrl && item.has_thumbnail) {
+            item.thumbnailUrl = `/api/libraries/${item.library_id}/thumbnails/${encodeURIComponent(item.relative_path.replace(/\.[^.]+$/, '.jpg'))}?token=${token || api.getToken()}`;
+          }
+        });
+        
+        if (isMobile()) {
+          renderMobilePlayer();
+          setupTouchEvents();
+          document.getElementById('playerTitle').textContent = currentMedia.filename;
+        } else {
+          renderPlayer();
+          renderPlaylist();
+          renderDetails();
+          setupKeyboardShortcuts();
+          
+          const shortcutsEl = document.getElementById('shortcuts');
+          shortcutsEl.classList.add('show');
+          setTimeout(() => shortcutsEl.classList.remove('show'), 3000);
+        }
+      } catch (err) {
+        console.error('Failed to load player:', err);
+        document.getElementById('videoContainer').innerHTML = '<div style="color:white;padding:40px;">加载失败: ' + err.message + '</div>';
+      }
+    }
+    
+    function renderMobilePlayer() {
+      const mainEl = document.querySelector('.player-main');
+      
+      mainEl.innerHTML = `
+        <div class="swipe-container" id="swipeContainer">
+          <div class="swipe-item prev" id="swipeItemPrev"></div>
+          <div class="swipe-item active" id="swipeItemCurrent"></div>
+          <div class="swipe-item next" id="swipeItemNext"></div>
+        </div>
+        <div class="play-pause-overlay" id="playPauseOverlay"></div>
+        <div class="seek-indicator left" id="seekLeft">-10s</div>
+        <div class="seek-indicator right" id="seekRight">+10s</div>
+        <div class="video-overlay" id="videoOverlay">
+          <div class="video-info">
+            <h3 id="videoTitle">${escapeHtml(currentMedia.filename)}</h3>
+          </div>
+          <div class="time-display">
+            <span id="currentTime">0:00</span>
+            <span id="totalTime">0:00</span>
+          </div>
+          <div class="progress-bar-container" id="progressContainer">
+            <div class="progress-bar-buffered" id="progressBuffered"></div>
+            <div class="progress-bar" id="progressBar"></div>
+          </div>
+        </div>
+        <div class="video-actions" id="videoActions">
+          <div class="action-btn" id="prevVideoBtn">
+            <div class="icon">↑</div>
+            <span>上一个</span>
+          </div>
+          <div class="action-btn" id="fullscreenBtn">
+            <div class="icon">⛶</div>
+            <span>全屏</span>
+          </div>
+          <div class="action-btn" id="nextVideoBtn">
+            <div class="icon">↓</div>
+            <span>下一个</span>
+          </div>
+        </div>
+      `;
+      
+      const currentEl = document.getElementById('swipeItemCurrent');
+      const currentItem = playlist[currentIndex];
+      if (currentItem) {
+        // 显示缩略图，待元数据就绪后淡入视频
+        const el = createMediaElement(currentItem, true, true);
+        if (el) {
+          currentEl.appendChild(el);
+          const video = el.querySelector('video');
+          if (video) setupCurrentVideo(video);
+        }
+      }
+      
+      bindMobileEvents();
+    }
+    
+    function createMediaElement(item, autoplay = false, showThumbnail = false) {
+      const container = document.createElement('div');
+      container.style.position = 'relative';
+      container.style.width = '100%';
+      container.style.height = '100%';
+      
+      if (item.file_type === 'video') {
+        if (showThumbnail && item.thumbnailUrl) {
+          const thumbnail = document.createElement('img');
+          thumbnail.className = 'swipe-item-thumbnail';
+          thumbnail.src = item.thumbnailUrl;
+          thumbnail.alt = item.filename;
+          thumbnail.dataset.thumbnail = 'true';
+          container.appendChild(thumbnail);
+        }
+        
+        const video = document.createElement('video');
+        video.src = api.getFileUrl(item.library_id, item.relative_path);
+        video.playsInline = true;
+        video.setAttribute('playsinline', '');
+        video.setAttribute('webkit-playsinline', '');
+        video.preload = autoplay ? 'auto' : 'metadata';
+        video.muted = !autoplay;
+        if (autoplay) {
+          video.autoplay = true;
+        }
+        video.dataset.id = item.id;
+        video.dataset.duration = item.duration || 0;
+        
+        // 如果已经有元数据，提前标记为 loaded（直接淡入）
+        if (video.readyState >= 1) {
+          video.classList.add('loaded');
+        }
+        
+        container.appendChild(video);
+        return container;
+      } else if (item.file_type === 'image') {
+        const img = document.createElement('img');
+        img.src = api.getFileUrl(item.library_id, item.relative_path);
+        img.alt = item.filename;
+        container.appendChild(img);
+        return container;
+      }
+      return null;
+    }
+    
+    function cleanupVideo(element) {
+      if (!element) return;
+      
+      const video = element.tagName === 'VIDEO' ? element : element.querySelector('video');
+      if (video) {
+        video.pause();
+        // 用最简单、可预测的方式释放
+        video.removeAttribute('src');
+        video.load();
+        if (video.parentNode) video.parentNode.removeChild(video);
+      }
+      
+      if (element.tagName !== 'VIDEO') {
+        while (element.firstChild) {
+          const child = element.firstChild;
+          if (child.tagName === 'VIDEO') {
+            child.pause();
+            child.removeAttribute('src');
+            child.load();
+          }
+          element.removeChild(child);
+        }
+      }
+    }
+    
+    function cleanupSwipeItems() {
+      const prevEl = document.getElementById('swipeItemPrev');
+      const currentEl = document.getElementById('swipeItemCurrent');
+      const nextEl = document.getElementById('swipeItemNext');
+      
+      [prevEl, currentEl, nextEl].forEach(el => {
+        if (!el) return;
+        Array.from(el.children).forEach(child => {
+          cleanupVideo(child);
+        });
+        el.innerHTML = '';
+      });
+    }
+    
+    function updateSwipeItems() {
+      const prevEl = document.getElementById('swipeItemPrev');
+      const currentEl = document.getElementById('swipeItemCurrent');
+      const nextEl = document.getElementById('swipeItemNext');
+      
+      cleanupSwipeItems();
+      
+      const currentItem = playlist[currentIndex];
+      if (!currentItem) return;
+      
+      if (currentEl) {
+        const el = createMediaElement(currentItem, true, true);
+        if (el) {
+          currentEl.appendChild(el);
+          const video = el.querySelector('video');
+          if (video) setupCurrentVideo(video);
+        }
+      }
+      
+      currentEl.className = 'swipe-item active';
+      prevEl.className = 'swipe-item prev';
+      nextEl.className = 'swipe-item next';
+      
+      prevEl.style.transform = 'translateY(-100%)';
+      nextEl.style.transform = 'translateY(100%)';
+      
+      document.getElementById('videoTitle').textContent = currentItem.filename;
+    }
+    
+    function setupCurrentVideo(video) {
+      if (!video || video.tagName !== 'VIDEO') return;
+      
+      videoElement = video;
+      video.muted = false;
+      video.preload = 'auto';
+      video.playsInline = true;
+      video.setAttribute('playsinline', '');
+      video.setAttribute('webkit-playsinline', '');
+      
+      const hideThumbAndShowVideo = () => {
+        const container = video.closest('.swipe-item');
+        if (!container) return;
+        const thumbnail = container.querySelector('.swipe-item-thumbnail');
+        if (thumbnail) thumbnail.classList.add('hidden');
+        video.classList.add('loaded');
+      };
+      
+      // 节流上报播放进度（每秒检查，5 秒粒度）
+      const onTimeUpdate = (() => {
+        let lastReported = -1;
+        return () => {
+          updateProgress();
+          const t = Math.floor(video.currentTime || 0);
+          if (t % 5 === 0 && t !== lastReported && currentMedia) {
+            lastReported = t;
+            api.updatePlayProgress(currentMedia.id, video.currentTime).catch(() => {});
+          }
+        };
+      })();
+      
+      const onEnded = () => {
+        if (currentMedia) {
+          const done = video.duration || video.currentTime || 0;
+          api.updatePlayProgress(currentMedia.id, done, true).catch(() => {});
+        }
+        if (currentIndex < playlist.length - 1) {
+          swipeToNext();
+        }
+      };
+      
+      const onPlaying = () => {
+        video.muted = false;
+        preloadAdjacentVideos();
+        hideThumbAndShowVideo();
+      };
+      
+      const onLoadedMetadata = () => {
+        updateProgress();
+        const savedPosition = currentMedia?.play_position || 0;
+        if (savedPosition > 0 && video.currentTime < 1) {
+          video.currentTime = savedPosition;
+        }
+        hideThumbAndShowVideo();
+        const totalEl = document.getElementById('totalTime');
+        if (totalEl && isFinite(video.duration)) {
+          totalEl.textContent = formatDuration(video.duration);
+        }
+      };
+      
+      const onLoadedData = hideThumbAndShowVideo;
+      const onError = (e) => {
+        console.error('Video load error:', e);
+      };
+      
+      video.addEventListener('timeupdate', onTimeUpdate);
+      video.addEventListener('ended', onEnded);
+      video.addEventListener('playing', onPlaying, { once: true });
+      video.addEventListener('loadedmetadata', onLoadedMetadata, { once: true });
+      video.addEventListener('loadeddata', onLoadedData, { once: true });
+      video.addEventListener('error', onError, { once: true });
+      
+      currentVideoListeners = {
+        timeupdate: onTimeUpdate,
+        ended: onEnded,
+        loadedmetadata: onLoadedMetadata,
+        loadeddata: onLoadedData,
+        error: onError
+      };
+      
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          video.muted = true;
+          video.play().catch(() => {});
+        });
+      }
+      resetHideUiTimer();
+    }
+    
+    function preloadAdjacentVideos() {
+      const prevEl = document.getElementById('swipeItemPrev');
+      const nextEl = document.getElementById('swipeItemNext');
+      
+      // 预加载上一个
+      if (currentIndex > 0 && !prevEl.hasChildNodes()) {
+        const prevItem = playlist[currentIndex - 1];
+        const el = createMediaElement(prevItem, false, true);
+        if (el) {
+          prevEl.appendChild(el);
+          const video = el.querySelector('video');
+          if (video) {
+            video.muted = true;
+            video.preload = 'metadata';
+            video.addEventListener('error', () => {
+              console.warn('Failed to preload previous video');
+            }, { once: true });
+            setTimeout(() => {
+              if (video.parentElement && prevEl.contains(video) && video.readyState === 0) {
+                video.preload = 'auto';
+              }
+            }, 200);
+          }
+        }
+      }
+      
+      // 预加载下一个
+      if (currentIndex < playlist.length - 1 && !nextEl.hasChildNodes()) {
+        const nextItem = playlist[currentIndex + 1];
+        const el = createMediaElement(nextItem, false, true);
+        if (el) {
+          nextEl.appendChild(el);
+          const video = el.querySelector('video');
+          if (video) {
+            video.muted = true;
+            video.preload = 'metadata';
+            video.addEventListener('error', () => {
+              console.warn('Failed to preload next video');
+            }, { once: true });
+            setTimeout(() => {
+              if (video.parentElement && nextEl.contains(video) && video.readyState === 0) {
+                video.preload = 'auto';
+              }
+            }, 200);
+          }
+        }
+      }
+    }
+    
+    let uiVisible = true;
+    let hideUiTimeout = null;
+    let isSeeking = false;
+    let seekStartX = 0;
+    let seekStartTime = 0;
+    
+    function toggleUi() {
+      uiVisible = !uiVisible;
+      const header = document.querySelector('.player-header');
+      const overlay = document.getElementById('videoOverlay');
+      const actions = document.getElementById('videoActions');
+      
+      header?.classList.toggle('hidden', !uiVisible);
+      overlay?.classList.toggle('hidden', !uiVisible);
+      actions?.classList.toggle('hidden', !uiVisible);
+      
+      if (uiVisible && videoElement && !videoElement.paused) {
+        resetHideUiTimer();
+      }
+    }
+    
+    function showUi() {
+      uiVisible = true;
+      const header = document.querySelector('.player-header');
+      const overlay = document.getElementById('videoOverlay');
+      const actions = document.getElementById('videoActions');
+      
+      header?.classList.remove('hidden');
+      overlay?.classList.remove('hidden');
+      actions?.classList.remove('hidden');
+    }
+    
+    function hideUi() {
+      uiVisible = false;
+      const header = document.querySelector('.player-header');
+      const overlay = document.getElementById('videoOverlay');
+      const actions = document.getElementById('videoActions');
+      
+      header?.classList.add('hidden');
+      overlay?.classList.add('hidden');
+      actions?.classList.add('hidden');
+    }
+    
+    function resetHideUiTimer() {
+      if (hideUiTimeout) clearTimeout(hideUiTimeout);
+      if (videoElement && !videoElement.paused) {
+        hideUiTimeout = setTimeout(() => hideUi(), 3000);
+      }
+    }
+    
+    function showPlayPauseIndicator(playing) {
+      const overlay = document.getElementById('playPauseOverlay');
+      overlay.textContent = playing ? '⏸' : '▶'; // 播放时显示“暂停”
+      overlay.classList.add('show');
+      setTimeout(() => overlay.classList.remove('show'), 500);
+    }
+    
+    function updateProgress() {
+      if (!videoElement) return;
+      const duration = videoElement.duration || 0;
+      const current = videoElement.currentTime || 0;
+      const progress = duration ? (current / duration) * 100 : 0;
+      const progressBar = document.getElementById('progressBar');
+      if (progressBar) progressBar.style.width = progress + '%';
+      
+      // 更新缓冲条
+      const bufEl = document.getElementById('progressBuffered');
+      if (bufEl && videoElement.buffered && videoElement.buffered.length) {
+        try {
+          const end = videoElement.buffered.end(videoElement.buffered.length - 1);
+          const bufPct = duration ? (end / duration) * 100 : 0;
+          bufEl.style.width = Math.min(100, bufPct) + '%';
+        } catch {}
+      }
+      
+      const currentEl = document.getElementById('currentTime');
+      const totalEl = document.getElementById('totalTime');
+      if (currentEl) currentEl.textContent = formatDuration(current);
+      if (totalEl && isFinite(duration)) totalEl.textContent = formatDuration(duration);
+    }
+    
+    function bindMobileEvents() {
+      const container = document.getElementById('swipeContainer');
+      
+      container?.addEventListener('click', (e) => {
+        if (isSeeking) return;
+        const activeItem = document.querySelector('.swipe-item.active');
+        const video = activeItem?.querySelector('video');
+        if (video && video.readyState >= 2) {
+          if (video.paused) {
+            video.play();
+            resetHideUiTimer();
+            showUi();
+            showPlayPauseIndicator(true);
+          } else {
+            video.pause();
+            if (hideUiTimeout) clearTimeout(hideUiTimeout);
+            showUi();
+            showPlayPauseIndicator(false);
+          }
+        }
+      });
+      
+      document.getElementById('prevVideoBtn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        swipeToPrev();
+      });
+      
+      document.getElementById('nextVideoBtn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        swipeToNext();
+      });
+      
+      document.getElementById('fullscreenBtn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const video = document.querySelector('.swipe-item.active video');
+        if (video) {
+          if (document.fullscreenElement) {
+            document.exitFullscreen();
+          } else {
+            video.requestFullscreen();
+          }
+        }
+      });
+      
+      const progressContainer = document.getElementById('progressContainer');
+      progressContainer?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const activeItem = document.querySelector('.swipe-item.active');
+        const video = activeItem?.querySelector('video');
+        if (video && video.duration && video.readyState >= 2) {
+          const rect = progressContainer.getBoundingClientRect();
+          const percent = (e.clientX - rect.left) / rect.width;
+          video.currentTime = Math.max(0, Math.min(video.duration, percent * video.duration));
+        }
+      });
+    }
+    
+    function setupTouchEvents() {
+      const container = document.getElementById('swipeContainer');
+      if (!container) return;
+      
+      let startX = 0;
+      let startY = 0;
+      let startTime = 0;
+      let gestureMode = null;
+      
+      container.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+          startX = e.touches[0].clientX;
+          startY = e.touches[0].clientY;
+          startTime = Date.now();
+          gestureMode = null;
+          
+          const currentEl = document.getElementById('swipeItemCurrent');
+          const prevEl = document.getElementById('swipeItemPrev');
+          const nextEl = document.getElementById('swipeItemNext');
+          currentEl.style.transition = '';
+          prevEl.style.transition = '';
+          nextEl.style.transition = '';
+          
+          preloadAdjacentVideos();
+        }
+      }, { passive: true });
+      
+      container.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 1) {
+          const currentX = e.touches[0].clientX;
+          const currentY = e.touches[0].clientY;
+          const deltaX = currentX - startX;
+          const deltaY = currentY - startY;
+          const absX = Math.abs(deltaX);
+          const absY = Math.abs(deltaY);
+          
+          if (!gestureMode && (absX > 15 || absY > 15)) {
+            gestureMode = absY > absX ? 'vertical' : 'horizontal';
+          }
+          
+          if (gestureMode === 'vertical') {
+            const currentEl = document.getElementById('swipeItemCurrent');
+            const prevEl = document.getElementById('swipeItemPrev');
+            const nextEl = document.getElementById('swipeItemNext');
+            
+            if (deltaY < 0 && currentIndex < playlist.length - 1) {
+              e.preventDefault();
+              currentEl.style.transform = `translateY(${deltaY}px)`;
+              nextEl.style.transform = `translateY(calc(100% + ${deltaY}px))`;
+              prevEl.style.transform = 'translateY(-100%)';
+              
+              const nextVideo = nextEl.querySelector('video');
+              if (nextVideo && nextVideo.readyState === 0) {
+                nextVideo.preload = 'auto';
+              }
+            } else if (deltaY > 0 && currentIndex > 0) {
+              e.preventDefault();
+              currentEl.style.transform = `translateY(${deltaY}px)`;
+              prevEl.style.transform = `translateY(calc(-100% + ${deltaY}px))`;
+              nextEl.style.transform = 'translateY(100%)';
+              
+              const prevVideo = prevEl.querySelector('video');
+              if (prevVideo && prevVideo.readyState === 0) {
+                prevVideo.preload = 'auto';
+              }
+            }
+          } else if (gestureMode === 'horizontal') {
+            if (videoElement && videoElement.duration) {
+              e.preventDefault();
+              if (!isSeeking) {
+                isSeeking = true;
+                seekStartX = currentX;
+                seekStartTime = videoElement.currentTime;
+              }
+              
+              const seekDelta = (currentX - seekStartX) / (window.innerWidth / 2) * videoElement.duration;
+              const newTime = Math.max(0, Math.min(videoElement.duration, seekStartTime + seekDelta));
+              videoElement.currentTime = newTime;
+              
+              const seekLeft = document.getElementById('seekLeft');
+              const seekRight = document.getElementById('seekRight');
+              const diff = newTime - seekStartTime;
+              
+              if (diff < -1) {
+                seekLeft.textContent = Math.round(-diff) + 's';
+                seekLeft.classList.add('show');
+                seekRight.classList.remove('show');
+              } else if (diff > 1) {
+                seekRight.textContent = '+' + Math.round(diff) + 's';
+                seekRight.classList.add('show');
+                seekLeft.classList.remove('show');
+              }
+            }
+          }
+        }
+      }, { passive: false });
+      
+      container.addEventListener('touchend', (e) => {
+        const currentEl = document.getElementById('swipeItemCurrent');
+        const prevEl = document.getElementById('swipeItemPrev');
+        const nextEl = document.getElementById('swipeItemNext');
+        
+        const endX = e.changedTouches[0].clientX;
+        const endY = e.changedTouches[0].clientY;
+        const deltaX = endX - startX;
+        const deltaY = endY - startY;
+        const deltaTime = Date.now() - startTime;
+        
+        if (isSeeking) {
+          isSeeking = false;
+          document.getElementById('seekLeft')?.classList.remove('show');
+          document.getElementById('seekRight')?.classList.remove('show');
+          gestureMode = null;
+          return;
+        }
+        
+        if (gestureMode === 'vertical') {
+          currentEl.style.transition = 'transform 0.2s ease-out';
+          prevEl.style.transition = 'transform 0.2s ease-out';
+          nextEl.style.transition = 'transform 0.2s ease-out';
+          
+          const threshold = window.innerHeight * 0.2;
+          const shouldSwitch = Math.abs(deltaY) > threshold || 
+                               (Math.abs(deltaY) > 60 && deltaTime < 250);
+          
+          if (shouldSwitch) {
+            if (deltaY < 0 && currentIndex < playlist.length - 1) {
+              currentEl.style.transform = 'translateY(-100%)';
+              nextEl.style.transform = 'translateY(0)';
+              setTimeout(() => {
+                switchToVideo('next');
+              }, 200);
+            } else if (deltaY > 0 && currentIndex > 0) {
+              currentEl.style.transform = 'translateY(100%)';
+              prevEl.style.transform = 'translateY(0)';
+              setTimeout(() => {
+                switchToVideo('prev');
+              }, 200);
+            } else {
+              resetSwipePosition();
+            }
+          } else {
+            resetSwipePosition();
+          }
+        }
+        
+        gestureMode = null;
+      }, { passive: true });
+      
+      function resetSwipePosition() {
+        const currentEl = document.getElementById('swipeItemCurrent');
+        const prevEl = document.getElementById('swipeItemPrev');
+        const nextEl = document.getElementById('swipeItemNext');
+        
+        currentEl.style.transform = '';
+        prevEl.style.transform = 'translateY(-100%)';
+        nextEl.style.transform = 'translateY(100%)';
+        
+        setTimeout(() => {
+          currentEl.style.transition = '';
+          prevEl.style.transition = '';
+          nextEl.style.transition = '';
+        }, 200);
+      }
+    }
+    
+    function switchToVideo(direction) {
+      const prevEl = document.getElementById('swipeItemPrev');
+      const currentEl = document.getElementById('swipeItemCurrent');
+      const nextEl = document.getElementById('swipeItemNext');
+      
+      // 移除当前视频的监听
+      if (currentVideoListeners && videoElement) {
+        videoElement.removeEventListener('timeupdate', currentVideoListeners.timeupdate);
+        videoElement.removeEventListener('ended', currentVideoListeners.ended);
+        videoElement.removeEventListener('loadedmetadata', currentVideoListeners.loadedmetadata);
+        videoElement.removeEventListener('loadeddata', currentVideoListeners.loadeddata);
+        videoElement.removeEventListener('error', currentVideoListeners.error);
+      }
+      currentVideoListeners = null;
+      videoElement = null;
+      
+      // 清空 currentEl
+      Array.from(currentEl.children).forEach(child => cleanupVideo(child));
+      currentEl.innerHTML = '';
+      
+      // 更新索引与当前媒体
+      currentIndex += (direction === 'next' ? 1 : -1);
+      currentMedia = playlist[currentIndex];
+      
+      const newUrl = new URL(window.location);
+      newUrl.searchParams.set('mediaId', currentMedia.id);
+      window.history.replaceState({}, '', newUrl);
+      
+      document.getElementById('videoTitle').textContent = currentMedia.filename;
+      
+      const sourceEl = (direction === 'next' ? nextEl : prevEl);
+      const otherEl = (direction === 'next' ? prevEl : nextEl);
+      
+      // 直接“移动”预加载好的节点，避免重建导致闪烁
+      const nodeToMove = sourceEl.firstElementChild;
+      if (nodeToMove) {
+        currentEl.appendChild(nodeToMove);
+        sourceEl.innerHTML = '';
+      } else {
+        const el = createMediaElement(currentMedia, true, true);
+        if (el) currentEl.appendChild(el);
+      }
+      
+      currentEl.className = 'swipe-item active';
+      prevEl.className = 'swipe-item prev';
+      nextEl.className = 'swipe-item next';
+      
+      prevEl.style.transition = '';
+      prevEl.style.transform = 'translateY(-100%)';
+      nextEl.style.transition = '';
+      nextEl.style.transform = 'translateY(100%)';
+      currentEl.style.transition = '';
+      currentEl.style.transform = '';
+      
+      const newVideo = currentEl.querySelector('video');
+      if (newVideo) {
+        newVideo.preload = 'auto';
+        newVideo.muted = false;
+        if (newVideo.readyState >= 1) {
+          const thumbnail = currentEl.querySelector('.swipe-item-thumbnail');
+          if (thumbnail) thumbnail.classList.add('hidden');
+          newVideo.classList.add('loaded');
+        }
+        setupCurrentVideo(newVideo);
+      } else {
+        const el = createMediaElement(currentMedia, true, true);
+        if (el) {
+          currentEl.appendChild(el);
+          const v = el.querySelector('video');
+          if (v) setupCurrentVideo(v);
+        }
+      }
+      
+      // 延迟清理另一侧，并按需只预加载一个相邻项
+      setTimeout(() => {
+        Array.from(otherEl.children).forEach(child => {
+          cleanupVideo(child);
+        });
+        otherEl.innerHTML = '';
+        
+        const preloadItem = (direction === 'next')
+          ? (currentIndex > 0 ? playlist[currentIndex - 1] : null)
+          : (currentIndex < playlist.length - 1 ? playlist[currentIndex + 1] : null);
+        
+        if (preloadItem && !otherEl.hasChildNodes()) {
+          const el = createMediaElement(preloadItem, false, true);
+          if (el) {
+            otherEl.appendChild(el);
+            const v = el.querySelector('video');
+            if (v) {
+              v.muted = true;
+              v.preload = 'metadata';
+              v.addEventListener('error', () => {
+                console.warn('Video preload failed, skipping');
+              }, { once: true });
+            }
+          }
+        }
+      }, 300);
+    }
+    
+    function swipeToNext() {
+      if (currentIndex < playlist.length - 1) {
+        const currentEl = document.getElementById('swipeItemCurrent');
+        const nextEl = document.getElementById('swipeItemNext');
+        
+        currentEl.style.transition = 'transform 0.2s ease-out';
+        nextEl.style.transition = 'transform 0.2s ease-out';
+        
+        currentEl.style.transform = 'translateY(-100%)';
+        nextEl.style.transform = 'translateY(0)';
+        
+        setTimeout(() => {
+          switchToVideo('next');
+        }, 200);
+      }
+    }
+    
+    function swipeToPrev() {
+      if (currentIndex > 0) {
+        const prevEl = document.getElementById('swipeItemPrev');
+        const currentEl = document.getElementById('swipeItemCurrent');
+        
+        currentEl.style.transition = 'transform 0.2s ease-out';
+        prevEl.style.transition = 'transform 0.2s ease-out';
+        
+        currentEl.style.transform = 'translateY(100%)';
+        prevEl.style.transform = 'translateY(0)';
+        
+        setTimeout(() => {
+          switchToVideo('prev');
+        }, 200);
+      }
+    }
+    
+    function getDirectoryPath(relativePath) {
+      const lastSlash = relativePath.lastIndexOf('/');
+      return lastSlash > 0 ? relativePath.substring(0, lastSlash) : '';
+    }
+    
+    function renderPlayer() {
+      if (!currentMedia) return;
+  
+      const container = document.getElementById('videoContainer');
+      const fileUrl = api.getFileUrl(currentMedia.library_id, currentMedia.relative_path);
+      
+      document.getElementById('playerTitle').textContent = currentMedia.filename;
+      
+      if (currentMedia.file_type === 'video') {
+        container.innerHTML = `
+          <video id="mainVideo" src="${fileUrl}" controls autoplay style="max-width:100%;max-height:100%;">
+            您的浏览器不支持视频播放
+          </video>
+        `;
+        
+        videoElement = document.getElementById('mainVideo');
+        
+        if (currentMedia.play_position) {
+          videoElement.currentTime = currentMedia.play_position;
+        }
+        
+        videoElement.addEventListener('timeupdate', () => {
+          if (videoElement.duration && Math.floor(videoElement.currentTime) % 5 === 0) {
+            api.updatePlayProgress(currentMedia.id, videoElement.currentTime);
+          }
+        });
+        videoElement.addEventListener('ended', () => {
+          api.updatePlayProgress(currentMedia.id, videoElement.duration, true);
+          playNext();
+        });
+      } else if (currentMedia.file_type === 'image') {
+        container.innerHTML = `
+          <img src="${fileUrl}" alt="${currentMedia.filename}" style="max-width:100%;max-height:100%;object-fit:contain;">
+        `;
+        videoElement = null;
+      } else if (currentMedia.file_type === 'audio') {
+        container.innerHTML = `
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;width:100%;">
+            <div style="font-size:120px;margin-bottom:30px;">🎵</div>
+            <div style="width:80%;max-width:800px;">
+              <audio id="mainVideo" src="${fileUrl}" controls autoplay style="width:100%;"></audio>
+            </div>
+          </div>
+        `;
+        videoElement = document.getElementById('mainVideo');
+        if (currentMedia.play_position) {
+          videoElement.currentTime = currentMedia.play_position;
+        }
+        videoElement.addEventListener('timeupdate', () => {
+          if (videoElement.duration && Math.floor(videoElement.currentTime) % 5 === 0) {
+            api.updatePlayProgress(currentMedia.id, videoElement.currentTime);
+          }
+        });
+        videoElement.addEventListener('ended', () => {
+          api.updatePlayProgress(currentMedia.id, videoElement.duration, true);
+          playNext();
+        });
+      } else {
+        container.innerHTML = '<div style="color:white;padding:40px;">不支持预览此文件类型</div>';
+        videoElement = null;
+      }
+    }
+    
+    function renderPlaylist() {
+      const playlistEl = document.getElementById('playlist');
+      
+      playlistEl.innerHTML = playlist.map((item, index) => `
+        <div class="playlist-item ${index === currentIndex ? 'active' : ''}" data-index="${index}">
+          <div class="playlist-item-thumb">
+            ${item.thumbnailUrl 
+              ? `<img src="${item.thumbnailUrl}" alt="">` 
+              : `<div class="placeholder">${item.file_type === 'video' ? '🎬' : item.file_type === 'audio' ? '🎵' : '🖼'}</div>`}
+          </div>
+          <div class="playlist-item-info">
+            <div class="playlist-item-title">${escapeHtml(item.filename)}</div>
+            <div class="playlist-item-meta">${item.duration ? formatDuration(item.duration) : ''}</div>
+          </div>
+        </div>
+      `).join('');
+      
+      playlistEl.querySelectorAll('.playlist-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const index = parseInt(item.dataset.index);
+          loadMedia(index);
+        });
+      });
+    }
+    
+    function renderDetails() {
+      if (!currentMedia) return;
+      
+      const content = document.getElementById('detailsContent');
+      const ratingStars = [1, 2, 3, 4, 5].map(star => `
+        <span class="rating-star ${star <= (currentMedia.rating || 0) ? 'active' : ''}" data-rating="${star}">★</span>
+      `).join('');
+      
+      content.innerHTML = `
+        <div class="detail-section">
+          <h4>评分</h4>
+          <div class="rating-input" id="ratingInput">${ratingStars}</div>
+        </div>
+        
+        <div class="detail-section">
+          <h4>文件名</h4>
+          <div class="value">${escapeHtml(currentMedia.filename)}</div>
+        </div>
+        
+        ${currentMedia.width && currentMedia.height ? `
+          <div class="detail-section">
+            <h4>分辨率</h4>
+            <div class="value">${currentMedia.width} × ${currentMedia.height}</div>
+          </div>
+        ` : ''}
+        
+        ${currentMedia.duration ? `
+          <div class="detail-section">
+            <h4>时长</h4>
+            <div class="value">${formatDuration(currentMedia.duration)}</div>
+          </div>
+        ` : ''}
+        
+        ${currentMedia.codec ? `
+          <div class="detail-section">
+            <h4>编码</h4>
+            <div class="value">${escapeHtml(currentMedia.codec)}</div>
+          </div>
+        ` : ''}
+        
+        ${currentMedia.file_size ? `
+          <div class="detail-section">
+            <h4>大小</h4>
+            <div class="value">${formatFileSize(currentMedia.file_size)}</div>
+          </div>
+        ` : ''}
+      `;
+      
+      content.querySelectorAll('.rating-star').forEach(star => {
+        star.addEventListener('click', async () => {
+          const rating = parseInt(star.dataset.rating);
+          try {
+            await api.setRating(currentMedia.id, rating);
+            currentMedia.rating = rating;
+            renderDetails();
+          } catch (err) {
+            console.error('Failed to set rating:', err);
+          }
+        });
+      });
+    }
+    
+    function playPrevious() {
+      if (currentIndex > 0) {
+        loadMedia(currentIndex - 1, 'prev');
+      }
+    }
+    
+    function playNext() {
+      if (currentIndex < playlist.length - 1) {
+        loadMedia(currentIndex + 1, 'next');
+      }
+    }
+    
+    function setupKeyboardShortcuts() {
+      document.addEventListener('keydown', (e) => {
+        switch(e.key) {
+          case 'ArrowUp':
+            e.preventDefault();
+            playPrevious();
+            break;
+          case 'ArrowDown':
+            e.preventDefault();
+            playNext();
+            break;
+          case 'ArrowLeft':
+            if (videoElement) {
+              e.preventDefault();
+              videoElement.currentTime = Math.max(0, videoElement.currentTime - 5);
+            }
+            break;
+          case 'ArrowRight':
+            if (videoElement) {
+              e.preventDefault();
+              videoElement.currentTime = Math.min(videoElement.duration, videoElement.currentTime + 5);
+            }
+            break;
+          case ' ':
+            if (videoElement) {
+              e.preventDefault();
+              if (videoElement.paused) {
+                videoElement.play();
+              } else {
+                videoElement.pause();
+              }
+            }
+            break;
+          case 'Escape':
+            window.close();
+            break;
+        }
+      });
+    }
+    
+    function escapeHtml(text) {
+      if (!text) return '';
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    
+    function formatDuration(seconds) {
+      const sNum = Number(seconds) || 0;
+      const h = Math.floor(sNum / 3600);
+      const m = Math.floor((sNum % 3600) / 60);
+      const s = Math.floor(sNum % 60);
+      if (h > 0) {
+        return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+      }
+      return `${m}:${s.toString().padStart(2, '0')}`;
+    }
+    
+    function formatFileSize(bytes) {
+      const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+      let unitIndex = 0;
+      let size = bytes;
+      while (size >= 1024 && unitIndex < units.length - 1) {
+        size /= 1024;
+        unitIndex++;
+      }
+      return `${size.toFixed(1)} ${units[unitIndex]}`;
+    }
+    
+    document.getElementById('backBtn').addEventListener('click', () => {
+      const baseUrl = window.location.origin + '/index.html';
+      if (returnUrl) {
+        try {
+          const decodedUrl = decodeURIComponent(returnUrl);
+          const url = new URL(decodedUrl, window.location.origin);
+          window.location.href = url.href;
+        } catch (e) {
+          window.location.href = baseUrl;
+        }
+      } else {
+        window.location.href = baseUrl;
+      }
+    });
+
+    document.getElementById('togglePlaylist').addEventListener('click', () => {
+      const sidebar = document.getElementById('playlistSidebar');
+      const toggle = document.getElementById('togglePlaylist');
+      sidebar.classList.toggle('collapsed');
+      toggle.textContent = sidebar.classList.contains('collapsed') ? '▶' : '◀';
+    });
+    
+    document.getElementById('toggleDetails').addEventListener('click', () => {
+      const sidebar = document.getElementById('detailsSidebar');
+      const toggle = document.getElementById('toggleDetails');
+      sidebar.classList.toggle('collapsed');
+      toggle.textContent = sidebar.classList.contains('collapsed') ? '◀' : '▶';
+    });
+    
+    // 页面卸载时清理所有视频
+    window.addEventListener('beforeunload', () => {
+      cleanupSwipeItems();
+      if (videoElement) {
+        videoElement.pause();
+        videoElement.removeAttribute('src');
+        videoElement.load();
+      }
+    });
+    
+    // 页面隐藏时暂停视频，节省资源
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && videoElement && !videoElement.paused) {
+        videoElement.pause();
+      } else if (!document.hidden && videoElement && videoElement.paused && isMobile()) {
+        // 移动端恢复播放需要用户交互
+      }
+    });
+    
+    // 桌面端点击播放列表加载
+    function loadMedia(index) {
+      if (index < 0 || index >= playlist.length) return;
+      currentIndex = index;
+      currentMedia = playlist[currentIndex];
+      const newUrl = new URL(window.location);
+      newUrl.searchParams.set('mediaId', currentMedia.id);
+      window.history.replaceState({}, '', newUrl);
+      
+      if (isMobile()) {
+        updateSwipeItems();
+      } else {
+        renderPlayer();
+        renderPlaylist();
+        renderDetails();
+      }
+    }
+    
+    init();
+  </script>
+</body>
+</html>
