@@ -1263,7 +1263,10 @@
                 seekStartTime = videoElement.currentTime;
               }
               
-              const seekDelta = (currentX - seekStartX) / (window.innerWidth / 2) * videoElement.duration;
+              const rawDelta = currentX - seekStartX;
+              const maxSeekDistance = videoElement.duration * 0.5;
+              const normalizedDelta = rawDelta / (window.innerWidth / 2);
+              const seekDelta = Math.sign(normalizedDelta) * Math.pow(Math.abs(normalizedDelta), 0.35) * maxSeekDistance;
               const newTime = Math.max(0, Math.min(videoElement.duration, seekStartTime + seekDelta));
               videoElement.currentTime = newTime;
               
