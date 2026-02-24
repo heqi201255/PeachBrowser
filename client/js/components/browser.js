@@ -8,6 +8,10 @@ const BrowserPage = {
   directoryTree: [],
   previewVolume: 0.5,
   savedTreeScrollTop: 0,
+  directoryNavActive: false,
+  directoryNavPath: null,
+  keydownHandler: null,
+  clickOffHandler: null,
 
   // --- Helpers for directory tree state ---
   // Recursively set children for a node at fullPath within a tree list
@@ -60,6 +64,16 @@ const BrowserPage = {
     if (this.hoverTimeout) {
       clearTimeout(this.hoverTimeout);
       this.hoverTimeout = null;
+    }
+
+    if (this.keydownHandler) {
+      document.removeEventListener('keydown', this.keydownHandler);
+      this.keydownHandler = null;
+    }
+
+    if (this.clickOffHandler) {
+      document.removeEventListener('click', this.clickOffHandler);
+      this.clickOffHandler = null;
     }
 
     document
@@ -484,7 +498,11 @@ const BrowserPage = {
     }
 
     const durationHtml = (media.file_type === 'video' || media.file_type === 'audio') && media.duration
-      ? `<span class="duration">${this.formatDuration(media.duration)}</span>`
+      ? `<span class="duration" data-duration="${media.duration}">${this.formatDuration(media.duration)}</span>`
+      : '';
+
+    const progressHtml = media.file_type === 'video'
+      ? `<div class="preview-progress"><div class="progress-bar"></div></div>`
       : '';
 
     const typeBadgeHtml = `<span class="type-badge">${media.file_type}</span>`;
@@ -509,6 +527,7 @@ const BrowserPage = {
           ${typeBadgeHtml}
           ${corruptedBadgeHtml}
           ${durationHtml}
+          ${progressHtml}
         </div>
         <div class="media-info">
           <h4 title="${this.escapeHtml(media.filename)}">${this.escapeHtml(
@@ -790,19 +809,77 @@ const BrowserPage = {
     });
 
     // Directory tree navigation
-    document
-      .querySelectorAll('.directory-tree li[data-dir-path]')
-      .forEach((li) => {
-        li.addEventListener('click', () => {
-          const dirPath = li.dataset.dirPath;
-          const tree = document.querySelector('.directory-tree');
-          if (tree) {
-            this.savedTreeScrollTop = tree.scrollTop;
-          }
-          store.setCurrentPath(dirPath);
-          this.refresh({ path: dirPath, page: 1 });
-        });
+    const dirTreeItems = document.querySelectorAll('.directory-tree li[data-dir-path]');
+    
+    dirTreeItems.forEach((li) => {
+      li.addEventListener('click', (e) => {
+        const dirPath = li.dataset.dirPath;
+        const tree = document.querySelector('.directory-tree');
+        if (tree) {
+          this.savedTreeScrollTop = tree.scrollTop;
+        }
+        
+        this.directoryNavActive = true;
+        this.directoryNavPath = dirPath;
+        
+        store.setCurrentPath(dirPath);
+        this.refresh({ path: dirPath, page: 1 });
       });
+    });
+
+    if (this.directoryNavActive && this.directoryNavPath) {
+      const activeItem = document.querySelector(`.directory-tree li[data-dir-path="${this.directoryNavPath}"]`);
+      if (activeItem) {
+        activeItem.classList.add('nav-focused');
+      }
+    }
+
+    if (this.clickOffHandler) {
+      document.removeEventListener('click', this.clickOffHandler);
+    }
+    this.clickOffHandler = (e) => {
+      if (!e.target.closest('.directory-tree') && this.directoryNavActive) {
+        this.directoryNavActive = false;
+        this.directoryNavPath = null;
+        document.querySelectorAll('.directory-tree li.nav-focused').forEach(item => item.classList.remove('nav-focused'));
+      }
+    };
+    document.addEventListener('click', this.clickOffHandler);
+
+    if (this.keydownHandler) {
+      document.removeEventListener('keydown', this.keydownHandler);
+    }
+    this.keydownHandler = (e) => {
+      if (!this.directoryNavActive) return;
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Enter') return;
+      
+      const items = Array.from(document.querySelectorAll('.directory-tree li[data-dir-path]'));
+      const currentFocused = document.querySelector('.directory-tree li.nav-focused');
+      const currentIndex = items.indexOf(currentFocused);
+      
+      if (e.key === 'ArrowDown' && currentIndex < items.length - 1) {
+        e.preventDefault();
+        items[currentIndex].classList.remove('nav-focused');
+        items[currentIndex + 1].classList.add('nav-focused');
+        this.directoryNavPath = items[currentIndex + 1].dataset.dirPath;
+        items[currentIndex + 1].scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'ArrowUp' && currentIndex > 0) {
+        e.preventDefault();
+        items[currentIndex].classList.remove('nav-focused');
+        items[currentIndex - 1].classList.add('nav-focused');
+        this.directoryNavPath = items[currentIndex - 1].dataset.dirPath;
+        items[currentIndex - 1].scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'Enter' && currentIndex >= 0) {
+        const dirPath = items[currentIndex].dataset.dirPath;
+        const tree = document.querySelector('.directory-tree');
+        if (tree) {
+          this.savedTreeScrollTop = tree.scrollTop;
+        }
+        store.setCurrentPath(dirPath);
+        this.refresh({ path: dirPath, page: 1 });
+      }
+    };
+    document.addEventListener('keydown', this.keydownHandler);
 
     // User menu
     document.getElementById('userMenuBtn')?.addEventListener('click', () => {
@@ -873,6 +950,21 @@ const BrowserPage = {
 
         if (previewVideoEl) {
           let videoEl = null;
+          let durationEl = thumbnailEl?.querySelector('.duration');
+          let progressBar = thumbnailEl?.querySelector('.progress-bar');
+          const totalDuration = durationEl?.dataset?.duration ? parseFloat(durationEl.dataset.duration) : null;
+          let originalDurationText = durationEl?.textContent || '';
+          
+          const updateProgress = () => {
+            if (!videoEl || !videoEl.duration) return;
+            const percent = (videoEl.currentTime / videoEl.duration) * 100;
+            if (progressBar) {
+              progressBar.style.width = `${percent}%`;
+            }
+            if (durationEl) {
+              durationEl.textContent = `${this.formatDuration(videoEl.currentTime)} / ${originalDurationText}`;
+            }
+          };
           
           card.addEventListener('mouseenter', () => {
             if (!videoEl) {
@@ -883,6 +975,7 @@ const BrowserPage = {
               videoEl.volume = this.previewVolume;
               videoEl.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;';
               previewVideoEl.appendChild(videoEl);
+              videoEl.addEventListener('timeupdate', updateProgress);
             }
             
             this.hoverTimeout = setTimeout(() => {
@@ -899,6 +992,12 @@ const BrowserPage = {
             if (videoEl) {
               videoEl.pause();
               videoEl.currentTime = 0;
+            }
+            if (progressBar) {
+              progressBar.style.width = '0%';
+            }
+            if (durationEl) {
+              durationEl.textContent = originalDurationText;
             }
           });
 

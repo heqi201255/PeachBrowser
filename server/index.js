@@ -143,9 +143,11 @@ function buildMediaFilters(baseParams, { type, tag, search, userId }, tableAlias
 }
 
 /** Build SQL to get immediate subdirectory names under currentPath */
-function buildDirSql(libraryId, currentPath, { type }) {
+function buildDirSql(libraryId, currentPath, { type, search }) {
   const dirTypeCondition = type && type !== 'all' ? ' AND file_type = ?' : '';
   const dirTypeParams = type && type !== 'all' ? [type] : [];
+  const dirSearchCondition = search ? ' AND (filename LIKE ? OR relative_path LIKE ?)' : '';
+  const dirSearchParams = search ? [`%${search}%`, `%${search}%`] : [];
   if (currentPath) {
     return {
       sql: `
@@ -156,9 +158,9 @@ function buildDirSql(libraryId, currentPath, { type }) {
             ELSE NULL
           END as dir_name
         FROM media_files
-        WHERE library_id = ? AND relative_path LIKE ? AND relative_path LIKE ?${dirTypeCondition}
+        WHERE library_id = ? AND relative_path LIKE ? AND relative_path LIKE ?${dirTypeCondition}${dirSearchCondition}
       `,
-      params: [currentPath, currentPath, currentPath, libraryId, `${currentPath}/%`, `${currentPath}/%/%`, ...dirTypeParams]
+      params: [currentPath, currentPath, currentPath, libraryId, `${currentPath}/%`, `${currentPath}/%/%`, ...dirTypeParams, ...dirSearchParams]
     };
   }
   return {
@@ -170,9 +172,9 @@ function buildDirSql(libraryId, currentPath, { type }) {
           ELSE NULL
         END as dir_name
       FROM media_files
-      WHERE library_id = ? AND relative_path LIKE '%/%'${dirTypeCondition}
+      WHERE library_id = ? AND relative_path LIKE '%/%'${dirTypeCondition}${dirSearchCondition}
     `,
-    params: [libraryId, ...dirTypeParams]
+    params: [libraryId, ...dirTypeParams, ...dirSearchParams]
   };
 }
 
@@ -371,8 +373,8 @@ app.get('/api/libraries/:id/media', authMiddleware, (req, res) => {
   ).get(...countParams);
   const totalFiles = countResult?.total || 0;
 
-  // Subdirectories (filtered by type only) - skip in recursive mode
-  const directories = isRecursive ? [] : database.prepare(buildDirSql(libraryId, currentPath, { type }).sql).all(...buildDirSql(libraryId, currentPath, { type }).params)
+  // Subdirectories (filtered by type and search) - skip in recursive mode
+  const directories = isRecursive ? [] : database.prepare(buildDirSql(libraryId, currentPath, { type, search }).sql).all(...buildDirSql(libraryId, currentPath, { type, search }).params)
     .filter(r => r.dir_name !== null)
     .map(r => r.dir_name);
 

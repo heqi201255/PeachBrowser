@@ -687,6 +687,30 @@ body {
   font-size: 12px;
 }
 
+.media-thumbnail .preview-progress {
+  position: absolute;
+  bottom: 4px;
+  left: 8px;
+  right: 8px;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.media-card:hover .preview-progress {
+  opacity: 1;
+}
+
+.preview-progress .progress-bar {
+  height: 100%;
+  background: var(--primary-color);
+  border-radius: 2px;
+  width: 0%;
+  transition: width 0.1s linear;
+}
+
 .media-thumbnail .type-badge {
   position: absolute;
   top: 8px;
@@ -1044,6 +1068,17 @@ body {
 .directory-tree li {
   position: relative;
   overflow: hidden;
+}
+
+.directory-tree li.active {
+  background: var(--primary-color);
+  color: #000;
+}
+
+.directory-tree li.nav-focused:not(.active) {
+  background: rgba(52, 152, 219, 0.25);
+  outline: 2px solid var(--primary-color);
+  outline-offset: -2px;
 }
 
 .directory-tree .dir-name {
