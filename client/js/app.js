@@ -1,4 +1,87 @@
 let currentPage = 'auth';
+let progressPollInterval = null;
+
+const ScanProgressManager = {
+  activeProgress: new Map(),
+  
+  start() {
+    if (progressPollInterval) return;
+    progressPollInterval = setInterval(() => this.poll(), 1000);
+    this.poll();
+  },
+  
+  stop() {
+    if (progressPollInterval) {
+      clearInterval(progressPollInterval);
+      progressPollInterval = null;
+    }
+    this.hideBar();
+  },
+  
+  async poll() {
+    try {
+      const data = await api.getScanProgress();
+      if (data.active && data.active.length > 0) {
+        data.active.forEach(p => this.activeProgress.set(p.libraryId, p));
+        this.updateBar();
+      } else {
+        this.activeProgress.clear();
+        this.hideBar();
+      }
+    } catch (err) {
+      console.error('Failed to poll scan progress:', err);
+    }
+  },
+  
+  updateBar() {
+    let bar = document.getElementById('scanProgressBar');
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = 'scanProgressBar';
+      bar.className = 'scan-progress-bar';
+      document.body.insertBefore(bar, document.body.firstChild);
+    }
+    
+    const progressList = Array.from(this.activeProgress.values());
+    if (progressList.length === 0) {
+      this.hideBar();
+      return;
+    }
+    
+    const p = progressList[0];
+    const percent = p.total > 0 ? Math.round((p.current / p.total) * 100) : 0;
+    const stageText = {
+      'scanning': '扫描文件中',
+      'processing': '处理文件中',
+      'thumbnails': '生成预览图中'
+    }[p.stage] || '处理中';
+    
+    bar.innerHTML = `
+      <div class="scan-progress-content">
+        <span class="scan-progress-library">${this.escapeHtml(p.libraryName)}</span>
+        <span class="scan-progress-stage">${stageText}</span>
+        <span class="scan-progress-count">${p.current}/${p.total || '?'}</span>
+      </div>
+      <div class="scan-progress-track">
+        <div class="scan-progress-fill" style="width: ${percent}%"></div>
+      </div>
+    `;
+    bar.classList.add('show');
+  },
+  
+  hideBar() {
+    const bar = document.getElementById('scanProgressBar');
+    if (bar) {
+      bar.classList.remove('show');
+    }
+  },
+  
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+};
 
 function showToast(message, type = 'success') {
   const existing = document.querySelector('.toast:not(.modal .toast)');
@@ -34,6 +117,7 @@ async function initApp() {
   const isAuthed = await checkAuth();
   
   if (isAuthed) {
+    ScanProgressManager.start();
     const urlParams = new URLSearchParams(window.location.search);
     const libraryId = urlParams.get('libraryId');
     const path = urlParams.get('path');
@@ -108,12 +192,14 @@ function setupEventListeners() {
   
   window.addEventListener('auth-expired', () => {
     currentPage = 'auth';
+    ScanProgressManager.stop();
     store.reset();
     AuthPage.render();
   });
   
   window.addEventListener('logout', () => {
     currentPage = 'auth';
+    ScanProgressManager.stop();
     updateUrl({});
     AuthPage.render();
   });

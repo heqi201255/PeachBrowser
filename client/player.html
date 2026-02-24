@@ -674,6 +674,8 @@
     const libraryId = parseInt(urlParams.get('libraryId'));
     const token = urlParams.get('token');
     const returnUrl = urlParams.get('returnUrl');
+    const recursive = urlParams.get('recursive') === 'true';
+    const currentPath = urlParams.get('path') || '';
     
     if (token) {
       api.setToken(token);
@@ -693,10 +695,16 @@
       try {
         currentMedia = await api.getMediaDetail(mediaId);
         
-        const mediaList = await api.getMedia(libraryId, { 
-          path: getDirectoryPath(currentMedia.relative_path),
-          pageSize: 1000 
-        });
+        const params = { 
+          pageSize: 1000,
+          recursive: recursive ? 'true' : 'false'
+        };
+        
+        if (currentPath) {
+          params.path = currentPath;
+        }
+        
+        const mediaList = await api.getMedia(libraryId, params);
         
         playlist = mediaList.media.filter(m => m.file_type === 'video' || m.file_type === 'image');
         currentIndex = playlist.findIndex(m => m.id === mediaId);

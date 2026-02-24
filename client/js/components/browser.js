@@ -63,14 +63,19 @@ const BrowserPage = {
     }
 
     document
-      .querySelectorAll('.media-card video, .media-card audio')
+      .querySelectorAll('.preview-video video, .preview-audio audio')
       .forEach((media) => {
         media.pause();
         media.src = '';
         media.load();
+        media.remove();
       });
 
-    // Detach old listeners by cloning cards
+    if (this.lazyObserver) {
+      this.lazyObserver.disconnect();
+      this.lazyObserver = null;
+    }
+
     const oldContainer = document.getElementById('app');
     if (oldContainer) {
       const oldCards = oldContainer.querySelectorAll('.media-card');
@@ -165,7 +170,10 @@ const BrowserPage = {
       <div class="app-layout">
         <aside class="sidebar">
           <div class="sidebar-header">
-            <h2 id="logoBtn" style="cursor:pointer;">PeachBrowser</h2>
+            <h2 id="logoBtn" style="cursor:pointer;display:flex;align-items:center;gap:8px;">
+              <img src="assets/logo.png" alt="Logo" style="width:24px;height:24px;">
+              PeachBrowser
+            </h2>
           </div>
 
           <div class="sidebar-section">
@@ -341,11 +349,40 @@ const BrowserPage = {
     `;
 
     this.bindEvents();
+    this.initLazyLoad();
 
     const tree = document.querySelector('.directory-tree');
     if (tree && this.savedTreeScrollTop) {
       tree.scrollTop = this.savedTreeScrollTop;
     }
+  },
+
+  initLazyLoad() {
+    if (this.lazyObserver) {
+      this.lazyObserver.disconnect();
+    }
+
+    this.lazyObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const img = entry.target;
+            if (img.dataset.src) {
+              img.src = img.dataset.src;
+              img.onload = () => img.classList.add('loaded');
+              img.onerror = () => img.classList.add('error');
+              delete img.dataset.src;
+              this.lazyObserver.unobserve(img);
+            }
+          }
+        });
+      },
+      { rootMargin: '100px', threshold: 0 }
+    );
+
+    document.querySelectorAll('.lazy-thumbnail[data-src]').forEach((img) => {
+      this.lazyObserver.observe(img);
+    });
   },
 
   renderDirectoryTree(dirs, parentPath, level = 0) {
@@ -403,52 +440,50 @@ const BrowserPage = {
     const fileIcon = this.getFileIcon(media.file_type);
     const isGif = media.extension?.toLowerCase() === '.gif';
     const isAudio = media.file_type === 'audio';
+    const isVideo = media.file_type === 'video';
+
+    const fileUrl = api.getFileUrl(media.library_id, media.relative_path);
 
     let thumbnailHtml;
-    if (media.thumbnailUrl) {
+    let previewType = '';
+    
+    if (isGif) {
+      thumbnailHtml = `<img data-src="${fileUrl}" alt="${this.escapeHtml(
+        media.filename
+      )}" loading="lazy" class="gif-preview lazy-thumbnail">`;
+    } else if (media.thumbnailUrl) {
       if (isAudio) {
-        thumbnailHtml = `<img src="${media.thumbnailUrl}" alt="${this.escapeHtml(
+        previewType = 'audio';
+        thumbnailHtml = `<img data-src="${media.thumbnailUrl}" alt="${this.escapeHtml(
           media.filename
-        )}" loading="lazy">
-          <audio src="${api.getFileUrl(
-            media.library_id,
-            media.relative_path
-          )}" preload="metadata"></audio>`;
-      } else if (isGif) {
-        thumbnailHtml = `<img src="${media.thumbnailUrl}" alt="${this.escapeHtml(
-          media.filename
-        )}" loading="lazy" class="gif-preview">`;
+        )}" loading="lazy" class="lazy-thumbnail">
+          <div class="preview-audio" data-src="${fileUrl}"></div>`;
       } else {
-        thumbnailHtml = `<img src="${media.thumbnailUrl}" alt="${this.escapeHtml(
+        previewType = isVideo ? 'video' : '';
+        thumbnailHtml = `<img data-src="${media.thumbnailUrl}" alt="${this.escapeHtml(
           media.filename
-        )}" loading="lazy">
+        )}" loading="lazy" class="lazy-thumbnail">
           ${
-            media.file_type === 'video'
-              ? `<video src="${api.getFileUrl(
-                  media.library_id,
-                  media.relative_path
-                )}" preload="metadata"></video>`
+            isVideo
+              ? `<div class="preview-video" data-src="${fileUrl}"></div>`
               : ''
           }`;
       }
     } else if (isAudio) {
+      previewType = 'audio';
       thumbnailHtml = `<div class="placeholder">${fileIcon}</div>
-        <audio src="${api.getFileUrl(
-          media.library_id,
-          media.relative_path
-        )}" preload="metadata"></audio>`;
-    } else if (isGif) {
-      thumbnailHtml = `<img src="${api.getFileUrl(
-        media.library_id,
-        media.relative_path
-      )}" alt="${this.escapeHtml(
-        media.filename
-      )}" loading="lazy" class="gif-preview">`;
+        <div class="preview-audio" data-src="${fileUrl}"></div>`;
     } else {
-      thumbnailHtml = `<div class="placeholder">${fileIcon}</div>`;
+      previewType = isVideo ? 'video' : '';
+      thumbnailHtml = `<div class="placeholder">${fileIcon}</div>
+        ${
+          isVideo
+            ? `<div class="preview-video" data-src="${fileUrl}"></div>`
+            : ''
+        }`;
     }
 
-    const durationHtml = media.duration
+    const durationHtml = (media.file_type === 'video' || media.file_type === 'audio') && media.duration
       ? `<span class="duration">${this.formatDuration(media.duration)}</span>`
       : '';
 
@@ -469,7 +504,7 @@ const BrowserPage = {
       <div class="media-card ${
         store.selectedMedia?.id === media.id ? 'selected' : ''
       } ${media.is_corrupted ? 'corrupted' : ''}" data-id="${media.id}">
-        <div class="media-thumbnail" data-path="${media.relative_path}">
+        <div class="media-thumbnail" data-path="${media.relative_path}" data-preview="${previewType}">
           ${thumbnailHtml}
           ${typeBadgeHtml}
           ${corruptedBadgeHtml}
@@ -833,27 +868,42 @@ const BrowserPage = {
         });
 
         const thumbnailEl = card.querySelector('.media-thumbnail');
-        const videoEl = thumbnailEl?.querySelector('video');
-        const audioEl = thumbnailEl?.querySelector('audio');
+        const previewVideoEl = thumbnailEl?.querySelector('.preview-video');
+        const previewAudioEl = thumbnailEl?.querySelector('.preview-audio');
 
-        if (videoEl) {
-          videoEl.volume = this.previewVolume;
+        if (previewVideoEl) {
+          let videoEl = null;
+          
           card.addEventListener('mouseenter', () => {
-            this.hoverTimeout = setTimeout(() => {
-              videoEl.volume = this.previewVolume;
+            if (!videoEl) {
+              videoEl = document.createElement('video');
+              videoEl.src = previewVideoEl.dataset.src;
+              videoEl.preload = 'metadata';
               videoEl.muted = false;
-              videoEl.play().catch(() => {});
+              videoEl.volume = this.previewVolume;
+              videoEl.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;';
+              previewVideoEl.appendChild(videoEl);
+            }
+            
+            this.hoverTimeout = setTimeout(() => {
+              if (videoEl) {
+                videoEl.volume = this.previewVolume;
+                videoEl.muted = false;
+                videoEl.play().catch(() => {});
+              }
             }, 300);
           });
 
           card.addEventListener('mouseleave', () => {
             clearTimeout(this.hoverTimeout);
-            videoEl.pause();
-            videoEl.currentTime = 0;
+            if (videoEl) {
+              videoEl.pause();
+              videoEl.currentTime = 0;
+            }
           });
 
           thumbnailEl.addEventListener('mousemove', (e) => {
-            if (videoEl.duration) {
+            if (videoEl && videoEl.duration) {
               const rect = thumbnailEl.getBoundingClientRect();
               const x = e.clientX - rect.left;
               const percent = x / rect.width;
@@ -862,20 +912,33 @@ const BrowserPage = {
           });
         }
 
-        if (audioEl) {
-          audioEl.volume = this.previewVolume;
+        if (previewAudioEl) {
+          let audioEl = null;
+
           card.addEventListener('mouseenter', () => {
-            this.hoverTimeout = setTimeout(() => {
+            if (!audioEl) {
+              audioEl = document.createElement('audio');
+              audioEl.src = previewAudioEl.dataset.src;
+              audioEl.preload = 'metadata';
               audioEl.volume = this.previewVolume;
-              audioEl.muted = false;
-              audioEl.play().catch(() => {});
+              previewAudioEl.appendChild(audioEl);
+            }
+            
+            this.hoverTimeout = setTimeout(() => {
+              if (audioEl) {
+                audioEl.volume = this.previewVolume;
+                audioEl.muted = false;
+                audioEl.play().catch(() => {});
+              }
             }, 300);
           });
 
           card.addEventListener('mouseleave', () => {
             clearTimeout(this.hoverTimeout);
-            audioEl.pause();
-            audioEl.currentTime = 0;
+            if (audioEl) {
+              audioEl.pause();
+              audioEl.currentTime = 0;
+            }
           });
         }
       }
@@ -893,92 +956,7 @@ const BrowserPage = {
       this.refresh({ pageSize: parseInt(e.target.value, 10), page: 1 });
     });
 
-    // Detail panel controls (desktop only when selected)
-    document.getElementById('closeDetail')?.addEventListener('click', () => {
-      store.setSelectedMedia(null);
-      this.render();
-    });
-
-    document.querySelectorAll('.rating-star').forEach((star) => {
-      star.addEventListener('click', async () => {
-        if (!store.selectedMedia) return;
-        const rating = parseInt(star.dataset.rating, 10);
-        try {
-          await api.setRating(store.selectedMedia.id, rating);
-          store.selectedMedia.rating = rating;
-          this.render();
-          showToast('评分已保存', 'success');
-        } catch (err) {
-          showToast(err.message, 'error');
-        }
-      });
-    });
-
-    // Tags in detail panel
-    document.getElementById('addTagBtn')?.addEventListener('click', async () => {
-      const input = document.getElementById('newTagInput');
-      const tagName = input?.value?.trim();
-      if (!tagName || !store.selectedMedia) return;
-
-      try {
-        await api.addTag(store.selectedMedia.id, tagName);
-        const media = await api.getMediaDetail(store.selectedMedia.id);
-        store.setSelectedMedia(media);
-        // Refresh tags
-        const tags = await api.getTags(store.currentLibrary.id);
-        store.setTags(tags);
-        this.render();
-        input.value = '';
-        showToast('标签已添加', 'success');
-      } catch (err) {
-        showToast(err.message, 'error');
-      }
-    });
-
-    document.getElementById('newTagInput')?.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        document.getElementById('addTagBtn')?.click();
-      }
-    });
-
-    document.querySelectorAll('.tag .remove').forEach((btn) => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const tagIndex = parseInt(btn.dataset.tagIndex, 10);
-        if (store.selectedMedia && store.selectedMedia.tags[tagIndex]) {
-          try {
-            // Find tag id by name
-            const tags = await api.getTags(store.currentLibrary.id);
-            const tag = tags.find(
-              (t) => t.name === store.selectedMedia.tags[tagIndex]
-            );
-            if (tag) {
-              await api.removeTag(store.selectedMedia.id, tag.id);
-              const media = await api.getMediaDetail(store.selectedMedia.id);
-              store.setSelectedMedia(media);
-              this.render();
-            }
-          } catch (err) {
-            showToast(err.message, 'error');
-          }
-        }
-      });
-    });
-
-    // Delete
-    document.getElementById('deleteMediaBtn')?.addEventListener('click', async () => {
-      if (!store.selectedMedia) return;
-      if (!confirm('确定要删除这个文件吗？文件将被移到回收站。')) return;
-
-      try {
-        await api.deleteMedia(store.selectedMedia.id);
-        store.setSelectedMedia(null);
-        this.refresh();
-        showToast('文件已删除', 'success');
-      } catch (err) {
-        showToast(err.message, 'error');
-      }
-    });
+    this.bindDetailPanelEvents();
 
     // Drop zone
     const dropZone = document.getElementById('dropZone');
@@ -1014,17 +992,137 @@ const BrowserPage = {
   async selectMedia(mediaId) {
     const cachedMedia = store.mediaList.find((m) => m.id === mediaId);
     if (cachedMedia) {
-      store.setSelectedMedia(cachedMedia);
-      this.render();
+      this.updateSelection(cachedMedia);
     } else {
       try {
         const media = await api.getMediaDetail(mediaId);
-        store.setSelectedMedia(media);
-        this.render();
+        this.updateSelection(media);
       } catch (err) {
         console.error('Failed to get media detail:', err);
       }
     }
+  },
+
+  updateSelection(media) {
+    const prevSelected = document.querySelector('.media-card.selected');
+    if (prevSelected) {
+      prevSelected.classList.remove('selected');
+    }
+
+    const newSelected = document.querySelector(`.media-card[data-id="${media.id}"]`);
+    if (newSelected) {
+      newSelected.classList.add('selected');
+    }
+
+    store.setSelectedMedia(media);
+    this.updateDetailPanel(media);
+  },
+
+  updateDetailPanel(media) {
+    const detailPanel = document.querySelector('.detail-panel');
+    if (!detailPanel) return;
+
+    const parent = detailPanel.parentElement;
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = this.renderDetailPanel(media);
+    const newPanel = tempDiv.firstElementChild;
+
+    parent.replaceChild(newPanel, detailPanel);
+
+    this.bindDetailPanelEvents();
+  },
+
+  bindDetailPanelEvents() {
+    document.getElementById('closeDetail')?.addEventListener('click', () => {
+      const prevSelected = document.querySelector('.media-card.selected');
+      if (prevSelected) {
+        prevSelected.classList.remove('selected');
+      }
+      store.setSelectedMedia(null);
+      const detailPanel = document.querySelector('.detail-panel');
+      if (detailPanel) {
+        detailPanel.classList.remove('show');
+        const parent = detailPanel.parentElement;
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = this.renderEmptyDetailPanel();
+        parent.replaceChild(tempDiv.firstElementChild, detailPanel);
+      }
+    });
+
+    document.querySelectorAll('.rating-star').forEach((star) => {
+      star.addEventListener('click', async () => {
+        if (!store.selectedMedia) return;
+        const rating = parseInt(star.dataset.rating, 10);
+        try {
+          await api.setRating(store.selectedMedia.id, rating);
+          store.selectedMedia.rating = rating;
+          this.updateDetailPanel(store.selectedMedia);
+          showToast('评分已保存', 'success');
+        } catch (err) {
+          showToast(err.message, 'error');
+        }
+      });
+    });
+
+    document.getElementById('addTagBtn')?.addEventListener('click', async () => {
+      const input = document.getElementById('newTagInput');
+      const tagName = input?.value?.trim();
+      if (!tagName || !store.selectedMedia) return;
+
+      try {
+        await api.addTag(store.selectedMedia.id, tagName);
+        const media = await api.getMediaDetail(store.selectedMedia.id);
+        store.setSelectedMedia(media);
+        this.updateDetailPanel(media);
+        input.value = '';
+        showToast('标签已添加', 'success');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    });
+
+    document.getElementById('newTagInput')?.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        document.getElementById('addTagBtn')?.click();
+      }
+    });
+
+    document.querySelectorAll('.tag .remove').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const tagIndex = parseInt(btn.dataset.tagIndex, 10);
+        if (store.selectedMedia && store.selectedMedia.tags[tagIndex]) {
+          try {
+            const tags = await api.getTags(store.currentLibrary.id);
+            const tag = tags.find(
+              (t) => t.name === store.selectedMedia.tags[tagIndex]
+            );
+            if (tag) {
+              await api.removeTag(store.selectedMedia.id, tag.id);
+              const media = await api.getMediaDetail(store.selectedMedia.id);
+              store.setSelectedMedia(media);
+              this.updateDetailPanel(media);
+            }
+          } catch (err) {
+            showToast(err.message, 'error');
+          }
+        }
+      });
+    });
+
+    document.getElementById('deleteMediaBtn')?.addEventListener('click', async () => {
+      if (!store.selectedMedia) return;
+      if (!confirm('确定要删除这个文件吗？文件将被移到回收站。')) return;
+
+      try {
+        await api.deleteMedia(store.selectedMedia.id);
+        store.setSelectedMedia(null);
+        this.refresh();
+        showToast('文件已删除', 'success');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    });
   },
 
   async openPlayer(mediaId) {
@@ -1040,11 +1138,19 @@ const BrowserPage = {
         window.location.pathname +
           '?libraryId=' +
           mediaDetail.library_id +
-          (currentPath ? '&path=' + encodeURIComponent(currentPath) : '')
+          (currentPath ? '&path=' + encodeURIComponent(currentPath) : '') +
+          (store.flattenMode ? '&flatten=true' : '')
       );
-      window.location.href = `/player.html?mediaId=${mediaId}&libraryId=${
-        mediaDetail.library_id
-      }&token=${api.getToken()}&returnUrl=${returnUrl}`;
+      const playerUrl = new URL('/player.html', window.location.origin);
+      playerUrl.searchParams.set('mediaId', mediaId);
+      playerUrl.searchParams.set('libraryId', mediaDetail.library_id);
+      playerUrl.searchParams.set('token', api.getToken());
+      playerUrl.searchParams.set('returnUrl', returnUrl);
+      playerUrl.searchParams.set('recursive', store.flattenMode ? 'true' : 'false');
+      if (currentPath) {
+        playerUrl.searchParams.set('path', currentPath);
+      }
+      window.location.href = playerUrl.href;
     } catch (err) {
       console.error('Failed to open player:', err);
     }

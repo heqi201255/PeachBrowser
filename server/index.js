@@ -14,6 +14,43 @@ const metadata = require('./metadata');
 const app = express();
 const upload = multer({ dest: 'data/uploads/' });
 
+const scanProgress = {
+  active: new Map(),
+  start(libraryId, libraryName, stage, total) {
+    this.active.set(libraryId, {
+      libraryId,
+      libraryName,
+      stage,
+      current: 0,
+      total,
+      startTime: Date.now()
+    });
+  },
+  update(libraryId, current) {
+    const progress = this.active.get(libraryId);
+    if (progress) {
+      progress.current = current;
+    }
+  },
+  setStage(libraryId, stage, total) {
+    const progress = this.active.get(libraryId);
+    if (progress) {
+      progress.stage = stage;
+      progress.current = 0;
+      progress.total = total;
+    }
+  },
+  complete(libraryId) {
+    this.active.delete(libraryId);
+  },
+  get(libraryId) {
+    return this.active.get(libraryId);
+  },
+  getAll() {
+    return Array.from(this.active.values());
+  }
+};
+
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../client')));
 
@@ -584,6 +621,8 @@ function getMimeType(filePath) {
 async function scanLibraryAsync(libraryId, libraryName, libraryPath, userId) {
   const database = db.getDb();
   
+  scanProgress.start(libraryId, libraryName, 'scanning', 0);
+  
   try {
     const existingFilesRows = database.prepare(`
       SELECT relative_path, content_md5, file_size FROM media_files WHERE library_id = ?
@@ -595,6 +634,8 @@ async function scanLibraryAsync(libraryId, libraryName, libraryPath, userId) {
     
     const files = await scanner.scanLibrary(libraryPath, existingFiles);
     console.log(`Found ${files.length} files in library ${libraryName}`);
+    
+    scanProgress.setStage(libraryId, 'processing', files.length);
     
     const insertMedia = database.prepare(`
       INSERT OR IGNORE INTO media_files (library_id, relative_path, filename, extension, file_size, content_md5, file_type)
@@ -623,6 +664,7 @@ async function scanLibraryAsync(libraryId, libraryName, libraryPath, userId) {
     `);
     
     const thumbnailsToGenerate = [];
+    let processedCount = 0;
     
     for (const file of files) {
       if (!file.isNew) continue;
@@ -678,6 +720,11 @@ async function scanLibraryAsync(libraryId, libraryName, libraryPath, userId) {
           }
         }
       }
+      
+      processedCount++;
+      if (processedCount % 10 === 0) {
+        scanProgress.update(libraryId, processedCount);
+      }
     }
     
     database.prepare('UPDATE libraries SET last_scanned = datetime("now") WHERE id = ?').run(libraryId);
@@ -723,20 +770,31 @@ async function scanLibraryAsync(libraryId, libraryName, libraryPath, userId) {
     }
     
     if (thumbnailsToGenerate.length > 0) {
+      scanProgress.setStage(libraryId, 'thumbnails', thumbnailsToGenerate.length);
       console.log(`Generating ${thumbnailsToGenerate.length} thumbnails...`);
+      
+      let completedThumbnails = 0;
       thumbnail.addToQueue(thumbnailsToGenerate, (mediaId, result) => {
+        completedThumbnails++;
+        scanProgress.update(libraryId, completedThumbnails);
+        
         if (result.success) {
           unmarkCorrupted.run(mediaId);
           updateThumbnail.run(mediaId);
         } else if (result.reason === 'generation_failed') {
           markCorrupted.run(mediaId);
         }
+      }, () => {
+        scanProgress.complete(libraryId);
       });
+    } else {
+      scanProgress.complete(libraryId);
     }
     
     console.log(`Scanned library ${libraryName}: ${files.length} files found, ${files.filter(f => f.isNew).length} new`);
   } catch (err) {
     console.error(`Error scanning library ${libraryName}:`, err);
+    scanProgress.complete(libraryId);
   }
 }
 
@@ -1054,10 +1112,58 @@ app.post('/api/libraries/:id/sync', authMiddleware, async (req, res) => {
     // Rescan for new files
     await scanLibraryAsync(libraryId, library.name, library.path, req.userId);
     
+    // Fix missing thumbnails for video and non-GIF image files
+    const missingThumbnailFiles = database.prepare(`
+      SELECT m.id, m.relative_path, m.file_type, m.extension, mm.duration
+      FROM media_files m
+      LEFT JOIN media_metadata mm ON m.id = mm.media_id
+      WHERE m.library_id = ? 
+        AND m.has_thumbnail = 0 
+        AND m.is_corrupted = 0 
+        AND (m.file_type = 'video' OR m.file_type = 'image')
+    `).all(libraryId) || [];
+    
+    let fixedThumbnails = 0;
+    let generatedThumbnails = 0;
+    const updateThumbnailStmt = database.prepare('UPDATE media_files SET has_thumbnail = 1 WHERE id = ?');
+    
+    for (const file of missingThumbnailFiles) {
+      const ext = file.extension?.toLowerCase();
+      if (ext === '.gif') continue;
+      
+      const { thumbnailPath } = thumbnail.getThumbnailPath(library.name, file.relative_path);
+      
+      if (fs.existsSync(thumbnailPath)) {
+        updateThumbnailStmt.run(file.id);
+        fixedThumbnails++;
+      } else {
+        const fullPath = path.join(library.path, file.relative_path);
+        if (fs.existsSync(fullPath)) {
+          try {
+            const result = await thumbnail.generateThumbnail(
+              fullPath,
+              file.duration,
+              library.name,
+              file.relative_path,
+              file.file_type
+            );
+            if (result.success) {
+              updateThumbnailStmt.run(file.id);
+              generatedThumbnails++;
+            }
+          } catch (err) {
+            console.error(`Failed to generate thumbnail for ${file.relative_path}:`, err.message);
+          }
+        }
+      }
+    }
+    
     res.json({ 
       success: true, 
       deleted: deletedFiles.length,
-      message: `Sync completed. Removed ${deletedFiles.length} non-existent files.`
+      fixedThumbnails,
+      generatedThumbnails,
+      message: `Sync completed. Removed ${deletedFiles.length} non-existent files, fixed ${fixedThumbnails} thumbnails, generated ${generatedThumbnails} new thumbnails.`
     });
   } catch (err) {
     console.error('Sync error:', err);
@@ -1103,6 +1209,12 @@ app.get('/api/thumbnail-status', authMiddleware, (req, res) => {
   res.json({
     queueLength: thumbnail.getQueueLength(),
     isProcessing: thumbnail.isCurrentlyProcessing()
+  });
+});
+
+app.get('/api/scan-progress', authMiddleware, (req, res) => {
+  res.json({
+    active: scanProgress.getAll()
   });
 });
 

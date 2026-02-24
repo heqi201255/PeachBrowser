@@ -183,10 +183,6 @@ body {
   gap: 8px;
 }
 
-.sidebar-header h2::before {
-  content: '🍑';
-}
-
 .sidebar-back {
   padding: 10px 20px;
   color: var(--text-secondary);
@@ -626,25 +622,49 @@ body {
   object-fit: cover;
 }
 
-.media-thumbnail video,
-.media-thumbnail audio {
+.media-card:hover .media-thumbnail[data-preview="video"] img:not(.gif-preview),
+.media-card:hover .media-thumbnail[data-preview="audio"] img:not(.gif-preview) {
+  opacity: 0;
+}
+
+.preview-video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.preview-video video {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.preview-audio {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.preview-audio audio {
   display: none;
 }
 
-.media-card:hover .media-thumbnail video,
-.media-card:hover .media-thumbnail audio {
-  display: block;
+.lazy-thumbnail {
+  opacity: 0;
+  transition: opacity 0.2s ease-in;
 }
 
-.media-card:hover .media-thumbnail img:not(.gif-preview) {
-  display: none;
+.lazy-thumbnail.loaded {
+  opacity: 1;
 }
 
-.media-card:hover .media-thumbnail:has(.placeholder):has(audio) .placeholder {
-  display: none;
+.lazy-thumbnail.error {
+  opacity: 0.5;
 }
 
 .media-thumbnail .placeholder {
@@ -1272,3 +1292,57 @@ body {
     width: 100%;
   }
 }
+
+.scan-progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  background: var(--bg-card);
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border-color);
+  transform: translateY(-100%);
+  transition: transform 0.3s ease;
+}
+
+.scan-progress-bar.show {
+  transform: translateY(0);
+}
+
+.scan-progress-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.scan-progress-library {
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+.scan-progress-stage {
+  color: var(--text-secondary);
+}
+
+.scan-progress-count {
+  margin-left: auto;
+  color: var(--text-secondary);
+}
+
+.scan-progress-track {
+  height: 3px;
+  background: var(--border-color);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.scan-progress-fill {
+  height: 100%;
+  background: var(--primary-color);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+

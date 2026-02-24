@@ -121,7 +121,14 @@ async function generateThumbnail(filePath, duration, libraryName, relativePath, 
 }
 
 function addToQueue(items, onProgress, onComplete) {
-  thumbnailQueue = [...thumbnailQueue, ...items.map(item => ({ ...item, onProgress, onComplete }))];
+  const batchCallbacks = items.map(item => ({ onProgress, onComplete: item.onComplete }));
+  
+  thumbnailQueue = [...thumbnailQueue, ...items.map((item, i) => ({ 
+    ...item, 
+    onProgress,
+    batchIndex: i,
+    batchOnComplete: onComplete
+  }))];
   
   if (!isProcessing) {
     processQueue();
@@ -149,6 +156,10 @@ async function processQueue() {
     
     if (item.onProgress) {
       item.onProgress(item.mediaId, result);
+    }
+    
+    if (thumbnailQueue.length === 0 && item.batchOnComplete) {
+      item.batchOnComplete();
     }
   } catch (err) {
     console.error('Error processing thumbnail:', err);

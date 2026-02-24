@@ -202,7 +202,11 @@ const api = {
     return request(`/libraries/${libraryId}/sync`, { method: 'POST' });
   },
   
-  async deleteUser(userId) {
+  async getScanProgress() {
+    return request('/scan-progress');
+  },
+  
+  deleteUser(userId) {
     return request(`/admin/users/${userId}`, { method: 'DELETE' });
   }
 };
