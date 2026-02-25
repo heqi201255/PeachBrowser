@@ -11,6 +11,8 @@ const scanner = require('./scanner');
 const thumbnail = require('./thumbnail');
 const metadata = require('./metadata');
 
+const { spawn } = require('child_process');
+
 const app = express();
 const upload = multer({ dest: 'data/uploads/' });
 
@@ -1205,6 +1207,79 @@ app.post('/api/libraries/:id/upload', authMiddleware, upload.single('file'), (re
     console.error('Error uploading file:', err);
     res.status(500).json({ error: 'Failed to upload file' });
   }
+});
+
+app.get('/api/media/:id/preview', authMiddleware, (req, res) => {
+  const database = db.getDb();
+  const mediaId = parseInt(req.params.id);
+  const timeSeconds = parseFloat(req.query.time) || 0;
+  
+  const media = database.prepare(`
+    SELECT m.*, l.path as library_path FROM media_files m
+    INNER JOIN libraries l ON m.library_id = l.id
+    WHERE m.id = ?
+  `).get(mediaId);
+  
+  if (!media) {
+    return res.status(404).json({ error: 'Media not found' });
+  }
+  
+  const hasAccess = checkLibraryAccess(database, req.userId, media.library_id);
+  if (!hasAccess) {
+    return res.status(404).json({ error: 'Media not found' });
+  }
+  
+  if (media.file_type !== 'video') {
+    return res.status(400).json({ error: 'Not a video file' });
+  }
+  
+  const filePath = path.join(media.library_path, media.relative_path);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'File not found' });
+  }
+  
+  const h = Math.floor(timeSeconds / 3600);
+  const m = Math.floor((timeSeconds % 3600) / 60);
+  const s = Math.floor(timeSeconds % 60);
+  const ms = Math.floor((timeSeconds % 1) * 100);
+  const timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
+  
+  const ffmpegArgs = [
+    '-ss', timeStr,
+    '-i', filePath,
+    '-vframes', '1',
+    '-vf', 'scale=160:-2',
+    '-f', 'image2pipe',
+    '-vcodec', 'mjpeg',
+    '-q:v', '5',
+    '-'
+  ];
+  
+  res.setHeader('Content-Type', 'image/jpeg');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  
+  const ffmpeg = spawn('ffmpeg', ffmpegArgs);
+  
+  ffmpeg.stdout.pipe(res);
+  
+  ffmpeg.stderr.on('data', () => {});
+  
+  ffmpeg.on('error', (err) => {
+    console.error('FFmpeg error:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to extract frame' });
+    }
+  });
+  
+  ffmpeg.on('close', (code) => {
+    if (code !== 0 && !res.headersSent) {
+      res.status(500).json({ error: 'Failed to extract frame' });
+    }
+  });
+  
+  req.on('close', () => {
+    ffmpeg.kill();
+  });
 });
 
 app.get('/api/thumbnail-status', authMiddleware, (req, res) => {

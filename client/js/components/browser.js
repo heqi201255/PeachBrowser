@@ -2,8 +2,6 @@ const BrowserPage = {
   hoverVideo: null,
   hoverTimeout: null,
   detailPanelOpen: false,
-  playerOpen: false,
-  currentMedia: null,
   expandedDirs: new Set(),
   directoryTree: [],
   previewVolume: 0.5,
@@ -358,8 +356,6 @@ const BrowserPage = {
           </div>
         </main>
       </div>
-
-      ${this.playerOpen && this.currentMedia ? PlayerModal.render(this.currentMedia) : ''}
     `;
 
     this.bindEvents();

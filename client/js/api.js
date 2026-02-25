@@ -208,5 +208,9 @@ const api = {
   
   deleteUser(userId) {
     return request(`/admin/users/${userId}`, { method: 'DELETE' });
+  },
+  
+  getPreviewFrameUrl(mediaId, timeSeconds) {
+    return `${API_BASE}/media/${mediaId}/preview?time=${timeSeconds}&token=${authToken}`;
   }
 };

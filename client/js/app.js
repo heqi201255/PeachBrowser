@@ -219,12 +219,6 @@ function setupEventListeners() {
     await BrowserPage.init(e.detail.id, { path: '' });
     BrowserPage.render();
   });
-  
-  document.addEventListener('click', (e) => {
-    if (e.target.closest('.player-overlay') && e.target.closest('#closePlayer')) {
-      PlayerModal.close();
-    }
-  });
 }
 
 document.addEventListener('DOMContentLoaded', initApp);
