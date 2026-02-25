@@ -159,6 +159,18 @@ function createTables() {
       FOREIGN KEY (user_id) REFERENCES users(id)  ON DELETE CASCADE
     )
   `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS media_likes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      media_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(media_id, user_id),
+      FOREIGN KEY (media_id) REFERENCES media_files(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id)  ON DELETE CASCADE
+    )
+  `);
   
   createIndexIfNotExists('idx_media_library', 'media_files(library_id)');
   createIndexIfNotExists('idx_media_md5', 'media_files(content_md5)');

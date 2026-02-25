@@ -112,6 +112,7 @@ const BrowserPage = {
         search: params.search || '',
         path: params.path || store.currentPath || '',
         recursive: store.flattenMode ? 'true' : 'false',
+        liked: store.likedOnly ? 'true' : '',
       });
 
       store.setMediaList(
@@ -191,16 +192,19 @@ const BrowserPage = {
           <div class="sidebar-section">
             <h3>筛选</h3>
             <ul class="sidebar-nav">
-              <li class="${filterType === 'all' ? 'active' : ''}" data-type="all">
+              <li class="${filterType === 'all' && !store.likedOnly ? 'active' : ''}" data-type="all">
                 <span>📁</span> 全部
               </li>
-              <li class="${filterType === 'video' ? 'active' : ''}" data-type="video">
+              <li class="${store.likedOnly ? 'active' : ''}" data-filter="liked">
+                <span>♥</span> 收藏
+              </li>
+              <li class="${filterType === 'video' && !store.likedOnly ? 'active' : ''}" data-type="video">
                 <span>🎬</span> 视频
               </li>
-              <li class="${filterType === 'image' ? 'active' : ''}" data-type="image">
+              <li class="${filterType === 'image' && !store.likedOnly ? 'active' : ''}" data-type="image">
                 <span>🖼</span> 图片
               </li>
-              <li class="${filterType === 'audio' ? 'active' : ''}" data-type="audio">
+              <li class="${filterType === 'audio' && !store.likedOnly ? 'active' : ''}" data-type="audio">
                 <span>🎵</span> 音频
               </li>
             </ul>
@@ -514,6 +518,8 @@ const BrowserPage = {
           )}</div>`
         : '';
 
+    const likeClass = media.is_liked ? 'liked' : '';
+
     return `
       <div class="media-card ${
         store.selectedMedia?.id === media.id ? 'selected' : ''
@@ -524,6 +530,7 @@ const BrowserPage = {
           ${corruptedBadgeHtml}
           ${durationHtml}
           ${progressHtml}
+          <button class="like-btn ${likeClass}" data-id="${media.id}" title="收藏">♥</button>
         </div>
         <div class="media-info">
           <h4 title="${this.escapeHtml(media.filename)}">${this.escapeHtml(
@@ -548,6 +555,8 @@ const BrowserPage = {
       )
       .join('');
 
+    const likeClass = media.is_liked ? 'liked' : '';
+
     return `
       <div class="detail-panel show">
         <div class="detail-panel-header">
@@ -560,6 +569,13 @@ const BrowserPage = {
             <div class="rating-input" id="ratingInput">
               ${ratingStars}
             </div>
+          </div>
+
+          <div class="detail-section">
+            <h4>收藏</h4>
+            <button class="like-btn-detail ${likeClass}" id="detailLikeBtn">
+              <span class="heart">♥</span> ${media.is_liked ? '已收藏' : '添加收藏'}
+            </button>
           </div>
 
           <div class="detail-section">
@@ -906,6 +922,15 @@ const BrowserPage = {
     document.querySelectorAll('.sidebar-nav li[data-type]').forEach((li) => {
       li.addEventListener('click', () => {
         store.setFilterType(li.dataset.type);
+        store.setLikedOnly(false);
+        this.refresh({ page: 1 });
+      });
+    });
+
+    // Liked filter
+    document.querySelectorAll('.sidebar-nav li[data-filter="liked"]').forEach((li) => {
+      li.addEventListener('click', () => {
+        store.setLikedOnly(!store.likedOnly);
         this.refresh({ page: 1 });
       });
     });
@@ -927,16 +952,19 @@ const BrowserPage = {
         // Mobile: tap opens player directly
         card.addEventListener('click', (e) => {
           if (e.target.closest('.tag .remove')) return;
+          if (e.target.closest('.like-btn')) return;
           this.openPlayer(mediaId);
         });
       } else {
         // Desktop: single click selects, double click opens player
         card.addEventListener('click', (e) => {
           if (e.target.closest('.tag .remove')) return;
+          if (e.target.closest('.like-btn')) return;
           this.selectMedia(mediaId);
         });
 
-        card.addEventListener('dblclick', () => {
+        card.addEventListener('dblclick', (e) => {
+          if (e.target.closest('.like-btn')) return;
           this.openPlayer(mediaId);
         });
 
@@ -1037,6 +1065,24 @@ const BrowserPage = {
           });
         }
       }
+    });
+
+    // Like buttons
+    document.querySelectorAll('.like-btn').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const mediaId = parseInt(btn.dataset.id, 10);
+        try {
+          const result = await api.toggleLike(mediaId);
+          btn.classList.toggle('liked', result.liked);
+          const mediaIndex = store.mediaList.findIndex(m => m.id === mediaId);
+          if (mediaIndex !== -1) {
+            store.mediaList[mediaIndex].is_liked = result.liked;
+          }
+        } catch (err) {
+          showToast('操作失败', 'error');
+        }
+      });
     });
 
     // Pagination
@@ -1159,6 +1205,26 @@ const BrowserPage = {
       });
     });
 
+    document.getElementById('detailLikeBtn')?.addEventListener('click', async () => {
+      if (!store.selectedMedia) return;
+      try {
+        const result = await api.toggleLike(store.selectedMedia.id);
+        store.selectedMedia.is_liked = result.liked;
+        this.updateDetailPanel(store.selectedMedia);
+        const cardBtn = document.querySelector(`.media-card[data-id="${store.selectedMedia.id}"] .like-btn`);
+        if (cardBtn) {
+          cardBtn.classList.toggle('liked', result.liked);
+        }
+        const mediaIndex = store.mediaList.findIndex(m => m.id === store.selectedMedia.id);
+        if (mediaIndex !== -1) {
+          store.mediaList[mediaIndex].is_liked = result.liked;
+        }
+        showToast(result.liked ? '已添加到收藏' : '已取消收藏', 'success');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    });
+
     document.getElementById('addTagBtn')?.addEventListener('click', async () => {
       const input = document.getElementById('newTagInput');
       const tagName = input?.value?.trim();
@@ -1171,6 +1237,7 @@ const BrowserPage = {
         this.updateDetailPanel(media);
         input.value = '';
         showToast('标签已添加', 'success');
+        await this.updateTagsSidebar();
       } catch (err) {
         showToast(err.message, 'error');
       }
@@ -1197,6 +1264,7 @@ const BrowserPage = {
               const media = await api.getMediaDetail(store.selectedMedia.id);
               store.setSelectedMedia(media);
               this.updateDetailPanel(media);
+              await this.updateTagsSidebar();
             }
           } catch (err) {
             showToast(err.message, 'error');
@@ -1218,6 +1286,38 @@ const BrowserPage = {
         showToast(err.message, 'error');
       }
     });
+  },
+
+  async updateTagsSidebar() {
+    if (!store.currentLibrary) return;
+    try {
+      const tags = await api.getTags(store.currentLibrary.id);
+      store.setTags(tags);
+      const tagsSection = document.querySelector('.sidebar-section:nth-child(4) .sidebar-nav');
+      if (tagsSection) {
+        tagsSection.innerHTML = tags
+          .map(
+            (tag) => `
+            <li class="${
+              store.currentTag === tag.name ? 'active' : ''
+            }" data-tag="${this.escapeHtml(tag.name)}">
+              <span style="color:#3498db">#</span> ${this.escapeHtml(tag.name)}
+              <span class="count">${tag.media_count}</span>
+            </li>
+          `
+          )
+          .join('');
+        tagsSection.querySelectorAll('li[data-tag]').forEach((li) => {
+          li.addEventListener('click', () => {
+            const tag = li.dataset.tag;
+            store.setCurrentTag(store.currentTag === tag ? null : tag);
+            this.refresh({ page: 1 });
+          });
+        });
+      }
+    } catch (err) {
+      console.error('Failed to update tags sidebar:', err);
+    }
   },
 
   async openPlayer(mediaId) {

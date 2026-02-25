@@ -17,6 +17,7 @@ const store = {
   selectedMedia: null,
   searchQuery: '',
   filterType: 'all',
+  likedOnly: false,
   flattenMode: false,
   isLoading: false,
   listeners: [],
@@ -81,6 +82,11 @@ const store = {
     this.notify();
   },
   
+  setLikedOnly(likedOnly) {
+    this.likedOnly = likedOnly;
+    this.notify();
+  },
+  
   setFlattenMode(flatten) {
     this.flattenMode = flatten;
     this.notify();
@@ -109,6 +115,7 @@ const store = {
     this.selectedMedia = null;
     this.searchQuery = '';
     this.filterType = 'all';
+    this.likedOnly = false;
     this.flattenMode = false;
     this.notify();
   }

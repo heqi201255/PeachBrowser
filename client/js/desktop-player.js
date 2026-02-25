@@ -313,10 +313,19 @@ const DesktopPlayer = {
       <span class="rating-star ${star <= (this.currentMedia.rating || 0) ? 'active' : ''}" data-rating="${star}">★</span>
     `).join('');
 
+    const likeClass = this.currentMedia.is_liked ? 'liked' : '';
+
     content.innerHTML = `
       <div class="detail-section">
         <h4>评分</h4>
         <div class="rating-input" id="ratingInput">${ratingStars}</div>
+      </div>
+
+      <div class="detail-section">
+        <h4>收藏</h4>
+        <button class="like-btn-detail ${likeClass}" id="detailLikeBtn">
+          <span class="heart">♥</span> ${this.currentMedia.is_liked ? '已收藏' : '添加收藏'}
+        </button>
       </div>
 
       <div class="detail-section">
@@ -351,6 +360,22 @@ const DesktopPlayer = {
           <div class="value">${this.formatFileSize(this.currentMedia.file_size)}</div>
         </div>
       ` : ''}
+
+      <div class="detail-section">
+        <h4>标签</h4>
+        <div class="tag-list" id="tagList">
+          ${(this.currentMedia.tags || []).map((tag, index) => `
+            <span class="tag">
+              ${this.escapeHtml(tag)}
+              <span class="remove" data-tag-index="${index}">✕</span>
+            </span>
+          `).join('')}
+        </div>
+        <div class="add-tag-input">
+          <input type="text" id="newTagInput" placeholder="添加标签...">
+          <button class="btn btn-secondary btn-small" id="addTagBtn">添加</button>
+        </div>
+      </div>
     `;
 
     content.querySelectorAll('.rating-star').forEach(star => {
@@ -362,6 +387,58 @@ const DesktopPlayer = {
           this.renderDetails();
         } catch (err) {
           console.error('Failed to set rating:', err);
+        }
+      });
+    });
+
+    document.getElementById('detailLikeBtn')?.addEventListener('click', async () => {
+      try {
+        const result = await api.toggleLike(this.currentMedia.id);
+        this.currentMedia.is_liked = result.liked;
+        this.renderDetails();
+      } catch (err) {
+        console.error('Failed to toggle like:', err);
+      }
+    });
+
+    document.getElementById('addTagBtn')?.addEventListener('click', async () => {
+      const input = document.getElementById('newTagInput');
+      const tagName = input?.value?.trim();
+      if (!tagName) return;
+
+      try {
+        await api.addTag(this.currentMedia.id, tagName);
+        const media = await api.getMediaDetail(this.currentMedia.id);
+        this.currentMedia = media;
+        this.renderDetails();
+      } catch (err) {
+        console.error('Failed to add tag:', err);
+      }
+    });
+
+    document.getElementById('newTagInput')?.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        document.getElementById('addTagBtn')?.click();
+      }
+    });
+
+    document.querySelectorAll('.tag .remove').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const tagIndex = parseInt(btn.dataset.tagIndex, 10);
+        if (this.currentMedia.tags && this.currentMedia.tags[tagIndex]) {
+          try {
+            const tags = await api.getTags(this.currentMedia.library_id);
+            const tag = tags.find(t => t.name === this.currentMedia.tags[tagIndex]);
+            if (tag) {
+              await api.removeTag(this.currentMedia.id, tag.id);
+              const media = await api.getMediaDetail(this.currentMedia.id);
+              this.currentMedia = media;
+              this.renderDetails();
+            }
+          } catch (err) {
+            console.error('Failed to remove tag:', err);
+          }
         }
       });
     });

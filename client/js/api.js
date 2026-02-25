@@ -212,5 +212,13 @@ const api = {
   
   getPreviewFrameUrl(mediaId, timeSeconds) {
     return `${API_BASE}/media/${mediaId}/preview?time=${timeSeconds}&token=${authToken}`;
+  },
+  
+  async getLikeStatus(mediaId) {
+    return request(`/media/${mediaId}/like`);
+  },
+  
+  async toggleLike(mediaId) {
+    return request(`/media/${mediaId}/like`, { method: 'POST' });
   }
 };

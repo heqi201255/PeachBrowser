@@ -85,6 +85,7 @@ function batchDeleteMediaFiles(database, libraryName, deletedFiles){
   database.prepare(`DELETE FROM play_history WHERE media_id IN (${placeholders})`).run(...deletedFiles.map(f => f.id));
   database.prepare(`DELETE FROM media_tags WHERE media_id IN (${placeholders})`).run(...deletedFiles.map(f => f.id));
   database.prepare(`DELETE FROM media_ratings WHERE media_id IN (${placeholders})`).run(...deletedFiles.map(f => f.id));
+  database.prepare(`DELETE FROM media_likes WHERE media_id IN (${placeholders})`).run(...deletedFiles.map(f => f.id));
   database.prepare(`DELETE FROM media_files WHERE id IN (${placeholders})`).run(...deletedFiles.map(f => f.id));
 }
 
@@ -124,8 +125,8 @@ function buildPathCondition(currentPath, tableAlias = 'm', recursive = false) {
   };
 }
 
-/** Build type/tag/search filter conditions and append to params */
-function buildMediaFilters(baseParams, { type, tag, search, userId }, tableAlias = 'm') {
+/** Build type/tag/search/liked filter conditions and append to params */
+function buildMediaFilters(baseParams, { type, tag, search, liked, userId }, tableAlias = 'm') {
   let conditions = '';
   const params = [...baseParams];
   const prefix = tableAlias ? `${tableAlias}.` : '';
@@ -140,6 +141,10 @@ function buildMediaFilters(baseParams, { type, tag, search, userId }, tableAlias
   if (search) {
     conditions += ` AND (${prefix}filename LIKE ? OR ${prefix}relative_path LIKE ?)`;
     params.push(`%${search}%`, `%${search}%`);
+  }
+  if (liked === 'true') {
+    conditions += ` AND ${prefix}id IN (SELECT media_id FROM media_likes WHERE user_id = ?)`;
+    params.push(userId);
   }
   return { conditions, params };
 }
@@ -350,10 +355,10 @@ app.delete('/api/libraries/:id', authMiddleware, async (req, res) => {
 });
 
 app.get('/api/libraries/:id/media', authMiddleware, (req, res) => {
-  const { page = 1, pageSize = config.pagination.defaultPageSize, type, tag, search, path: currentPath = '', recursive = 'false' } = req.query;
+  const { page = 1, pageSize = config.pagination.defaultPageSize, type, tag, search, liked, path: currentPath = '', recursive = 'false' } = req.query;
   const database = db.getDb();
   const libraryId = parseInt(req.params.id);
-  const filters = { type, tag, search, userId: req.userId };
+  const filters = { type, tag, search, liked, userId: req.userId };
   const isRecursive = recursive === 'true';
 
   const library = checkLibraryAccess(database, req.userId, libraryId);
@@ -380,7 +385,7 @@ app.get('/api/libraries/:id/media', authMiddleware, (req, res) => {
     .filter(r => r.dir_name !== null)
     .map(r => r.dir_name);
 
-  // Main media list with JOINs (avoids N+1 for metadata, play_history, rating)
+  // Main media list with JOINs (avoids N+1 for metadata, play_history, rating, likes)
   const { conditions: mediaFilters, params: mediaBaseParams } = buildMediaFilters(
     [libraryId, ...pathParams],
     filters
@@ -390,15 +395,17 @@ app.get('/api/libraries/:id/media', authMiddleware, (req, res) => {
            m.content_md5, m.file_type, m.has_thumbnail, m.is_corrupted, m.created_at,
            mm.width, mm.height, mm.duration, mm.fps, mm.bitrate, mm.codec,
            ph.position as play_position, ph.play_count, ph.last_played,
-           COALESCE(mr.rating, 0) as rating
+           COALESCE(mr.rating, 0) as rating,
+           CASE WHEN ml.id IS NOT NULL THEN 1 ELSE 0 END as is_liked
     FROM media_files m
     LEFT JOIN media_metadata mm ON m.id = mm.media_id
     LEFT JOIN play_history ph ON m.id = ph.media_id AND ph.user_id = ?
     LEFT JOIN media_ratings mr ON m.id = mr.media_id AND mr.user_id = ?
+    LEFT JOIN media_likes ml ON m.id = ml.media_id AND ml.user_id = ?
     WHERE m.library_id = ?${pathCondition}${mediaFilters}
     ORDER BY m.id DESC LIMIT ? OFFSET ?
   `;
-  const mediaParams = [req.userId, req.userId, ...mediaBaseParams, pageSizeNum, offset];
+  const mediaParams = [req.userId, req.userId, req.userId, ...mediaBaseParams, pageSizeNum, offset];
   const media = database.prepare(mediaSql).all(...mediaParams) || [];
 
   // Batch fetch tags (1 query instead of N)
@@ -433,7 +440,8 @@ app.get('/api/libraries/:id/media', authMiddleware, (req, res) => {
     return {
       ...m,
       tags: tagsByMediaId[m.id] || [],
-      thumbnailUrl
+      thumbnailUrl,
+      is_liked: !!m.is_liked
     };
   });
 
@@ -872,17 +880,22 @@ app.get('/api/media/:id', authMiddleware, (req, res) => {
     'SELECT position as play_position, play_count, last_played FROM play_history WHERE media_id = ? AND user_id = ?'
   ).get(mediaId, req.userId);
   
-  const tags = database.prepare(`
+const tags = database.prepare(`
     SELECT t.id, t.name FROM tags t
     INNER JOIN media_tags mt ON t.id = mt.tag_id
     WHERE mt.media_id = ? AND t.user_id = ?
   `).all(mediaId, req.userId) || [];
+  
+  const like = database.prepare(
+    'SELECT 1 FROM media_likes WHERE media_id = ? AND user_id = ?'
+  ).get(mediaId, req.userId);
   
   res.json({
     ...media,
     ...meta,
     ...playHistory,
     tags: tags.map(t => t.name),
+    is_liked: !!like,
     fileUrl: `/api/libraries/${media.library_id}/files/${encodeURIComponent(media.relative_path)}`,
     thumbnailUrl: media.has_thumbnail ?
       `/api/libraries/${media.library_id}/thumbnails/${encodeURIComponent(media.relative_path.replace(/\.[^.]+$/, '.jpg'))}` :
@@ -926,6 +939,7 @@ app.delete('/api/media/:id', authMiddleware, async (req, res) => {
     database.prepare('DELETE FROM play_history WHERE media_id = ?').run(mediaId);
     database.prepare('DELETE FROM media_tags WHERE media_id = ?').run(mediaId);
     database.prepare('DELETE FROM media_ratings WHERE media_id = ?').run(mediaId);
+    database.prepare('DELETE FROM media_likes WHERE media_id = ?').run(mediaId);
     database.prepare('DELETE FROM media_files WHERE id = ?').run(mediaId);
     
     res.json({ success: true });
@@ -1027,6 +1041,52 @@ app.get('/api/tags', authMiddleware, (req, res) => {
   const tags = database.prepare(sql).all(...params) || [];
   
   res.json(tags);
+});
+
+app.get('/api/media/:id/like', authMiddleware, (req, res) => {
+  const database = db.getDb();
+  const mediaId = parseInt(req.params.id);
+  
+  const like = database.prepare(
+    'SELECT 1 FROM media_likes WHERE media_id = ? AND user_id = ?'
+  ).get(mediaId, req.userId);
+  
+  res.json({ liked: !!like });
+});
+
+app.post('/api/media/:id/like', authMiddleware, (req, res) => {
+  const database = db.getDb();
+  const mediaId = parseInt(req.params.id);
+  
+  const media = database.prepare(`
+    SELECT m.id, m.library_id FROM media_files m
+    WHERE m.id = ?
+  `).get(mediaId);
+  
+  if (!media) {
+    return res.status(404).json({ error: 'Media not found' });
+  }
+  
+  const hasAccess = checkLibraryAccess(database, req.userId, media.library_id);
+  if (!hasAccess) {
+    return res.status(404).json({ error: 'Media not found' });
+  }
+  
+  const existing = database.prepare(
+    'SELECT 1 FROM media_likes WHERE media_id = ? AND user_id = ?'
+  ).get(mediaId, req.userId);
+  
+  if (existing) {
+    database.prepare(
+      'DELETE FROM media_likes WHERE media_id = ? AND user_id = ?'
+    ).run(mediaId, req.userId);
+    res.json({ liked: false });
+  } else {
+    database.prepare(
+      'INSERT INTO media_likes (media_id, user_id) VALUES (?, ?)'
+    ).run(mediaId, req.userId);
+    res.json({ liked: true });
+  }
 });
 
 app.get('/api/media/:id/rating', authMiddleware, (req, res) => {
@@ -1413,6 +1473,7 @@ app.delete('/api/admin/users/:userId', authMiddleware, (req, res) => {
   database.prepare('DELETE FROM play_history WHERE user_id = ?').run(targetUserId);
   database.prepare('DELETE FROM tags WHERE user_id = ?').run(targetUserId);
   database.prepare('DELETE FROM media_ratings WHERE user_id = ?').run(targetUserId);
+  database.prepare('DELETE FROM media_likes WHERE user_id = ?').run(targetUserId);
   database.prepare('DELETE FROM users WHERE id = ?').run(targetUserId);
   
   res.json({ success: true });

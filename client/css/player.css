@@ -744,4 +744,96 @@ body {
     font-size: 12px;
     margin-top: 4px;
   }
+
+.detail-section .tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.detail-section .tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.detail-section .tag .remove {
+  cursor: pointer;
+  opacity: 0.6;
+  font-size: 10px;
+  margin-left: 2px;
+}
+
+.detail-section .tag .remove:hover {
+  opacity: 1;
+  color: var(--danger-color);
+}
+
+.detail-section .add-tag-input {
+  display: flex;
+  gap: 8px;
+}
+
+.detail-section .add-tag-input input {
+  flex: 1;
+  padding: 6px 10px;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.detail-section .add-tag-input input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+.detail-section .add-tag-input button {
+  padding: 6px 12px;
+  background: var(--primary-color);
+  border: none;
+  border-radius: 4px;
+  color: white;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.detail-section .add-tag-input button:hover {
+  background: var(--primary-hover);
+}
+
+.like-btn-detail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+}
+
+.like-btn-detail:hover {
+  border-color: var(--primary-color);
+}
+
+.like-btn-detail.liked {
+  color: #e74c3c;
+  border-color: #e74c3c;
+}
+
+.like-btn-detail .heart {
+  font-size: 16px;
 }

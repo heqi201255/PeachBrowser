@@ -609,6 +609,67 @@ body {
   z-index: 10;
 }
 
+.like-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0,0,0,0.6);
+  border: none;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  opacity: 0;
+  transition: all 0.2s;
+  color: rgba(255,255,255,0.6);
+  font-size: 18px;
+}
+
+.media-card:hover .like-btn {
+  opacity: 1;
+}
+
+.like-btn:hover {
+  background: rgba(0,0,0,0.8);
+  transform: scale(1.1);
+}
+
+.like-btn.liked {
+  opacity: 1;
+  color: #e74c3c;
+}
+
+.like-btn-detail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 18px;
+}
+
+.like-btn-detail:hover {
+  border-color: var(--primary-color);
+}
+
+.like-btn-detail.liked {
+  color: #e74c3c;
+  border-color: #e74c3c;
+}
+
+.like-btn-detail .heart {
+  font-size: 18px;
+}
+
 .media-thumbnail {
   aspect-ratio: 16/9;
   background: var(--bg-dark);
