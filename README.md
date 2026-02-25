@@ -2,6 +2,7 @@
   <img src="client/assets/logo.png" alt="PeachBrowser Logo" width="200">
   <h1>PeachBrowser</h1>
   <p>A simple and easy-to-use local media library browser (Eagle alternative)</p>
+  <p><a href="README_ZH.md">Chinese</a></p>
 </div>
 
 ---
