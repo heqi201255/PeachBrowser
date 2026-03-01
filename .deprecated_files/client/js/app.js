@@ -1,28 +1,19 @@
-const router = require('./core/router');
-const store = require('./core/store');
-const api = require('./core/api');
-
-const AuthPage = require('./components/pages/AuthPage');
-const LibrariesPage = require('./components/pages/LibrariesPage');
-const BrowserPage = require('./components/pages/BrowserPage');
-
-let currentPage = null;
-let currentPageInstance = null;
+let currentPage = 'auth';
+let progressPollInterval = null;
 
 const ScanProgressManager = {
   activeProgress: new Map(),
-  interval: null,
   
   start() {
-    if (this.interval) return;
-    this.interval = setInterval(() => this.poll(), 1000);
+    if (progressPollInterval) return;
+    progressPollInterval = setInterval(() => this.poll(), 1000);
     this.poll();
   },
   
   stop() {
-    if (this.interval) {
-      clearInterval(this.interval);
-      this.interval = null;
+    if (progressPollInterval) {
+      clearInterval(progressPollInterval);
+      progressPollInterval = null;
     }
     this.hideBar();
   },
@@ -65,15 +56,9 @@ const ScanProgressManager = {
       'thumbnails': '生成预览图中'
     }[p.stage] || '处理中';
     
-    const escapeHtml = (text) => {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
-    };
-    
     bar.innerHTML = `
       <div class="scan-progress-content">
-        <span class="scan-progress-library">${escapeHtml(p.libraryName)}</span>
+        <span class="scan-progress-library">${this.escapeHtml(p.libraryName)}</span>
         <span class="scan-progress-stage">${stageText}</span>
         <span class="scan-progress-count">${p.current}/${p.total || '?'}</span>
       </div>
@@ -89,6 +74,12 @@ const ScanProgressManager = {
     if (bar) {
       bar.classList.remove('show');
     }
+  },
+  
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 };
 
@@ -106,13 +97,17 @@ function showToast(message, type = 'success') {
 
 async function checkAuth() {
   const token = localStorage.getItem('token');
-  if (!token) return false;
+  if (!token) {
+    return false;
+  }
   
   try {
+    // Get current user info (this will fail 401 if user doesn't exist)
     const user = await api.getCurrentUser();
     store.setUser({ id: user.id, username: user.username }, user.is_admin);
     return true;
   } catch (err) {
+    // User doesn't exist or token invalid - clear token
     api.setToken(null);
     return false;
   }
@@ -121,86 +116,112 @@ async function checkAuth() {
 async function initApp() {
   const isAuthed = await checkAuth();
   
-  router.init();
-  
   if (isAuthed) {
     ScanProgressManager.start();
-    const { route, params } = router.parseUrl();
+    const urlParams = new URLSearchParams(window.location.search);
+    const libraryId = urlParams.get('libraryId');
+    const path = urlParams.get('path');
     
-    if (route === router.routes.browser) {
-      await navigateToBrowser(params.libraryId, params.path);
+    if (libraryId) {
+      currentPage = 'browser';
+      await BrowserPage.init(parseInt(libraryId), { path: path || '' });
+      BrowserPage.render();
     } else {
-      await navigateToLibraries();
+      currentPage = 'libraries';
+      await LibrariesPage.init();
+      LibrariesPage.render();
     }
   } else {
-    navigateToAuth();
+    currentPage = 'auth';
+    AuthPage.render();
   }
   
   setupEventListeners();
 }
 
+function updateUrl(params = {}) {
+  const url = new URL(window.location.href);
+  if (params.libraryId !== undefined) {
+    if (params.libraryId) {
+      url.searchParams.set('libraryId', params.libraryId);
+    } else {
+      url.searchParams.delete('libraryId');
+    }
+  }
+  if (params.path !== undefined) {
+    if (params.path) {
+      url.searchParams.set('path', params.path);
+    } else {
+      url.searchParams.delete('path');
+    }
+  }
+  if (Object.keys(params).length === 0) {
+    url.search = '';
+  }
+  window.history.pushState({}, '', url);
+}
+
 function setupEventListeners() {
-  window.addEventListener('route-change', async (e) => {
-    const { route, params } = e.detail;
+  window.addEventListener('popstate', async (e) => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const libraryId = urlParams.get('libraryId');
+    const path = urlParams.get('path') || '';
     
-    if (route === router.routes.auth) {
-      navigateToAuth();
-    } else if (route === router.routes.libraries) {
-      await navigateToLibraries();
-    } else if (route === router.routes.browser) {
-      await navigateToBrowser(params.libraryId, params.path);
+    if (libraryId) {
+      currentPage = 'browser';
+      store.setCurrentPath(path);
+      store.setCurrentLibrary(store.libraries.find((l) => l.id === parseInt(libraryId)) || null);
+      await BrowserPage.init(parseInt(libraryId), { path: path, skipUrlUpdate: true });
+      BrowserPage.render();
+    } else {
+      currentPage = 'libraries';
+      store.setCurrentLibrary(null);
+      store.setSelectedMedia(null);
+      store.setCurrentPath('');
+      await LibrariesPage.init();
+      LibrariesPage.render();
     }
   });
-  
+
   window.addEventListener('auth-success', async () => {
-    ScanProgressManager.start();
-    await navigateToLibraries();
+    currentPage = 'libraries';
+    updateUrl({});
+    await LibrariesPage.init();
+    LibrariesPage.render();
   });
   
   window.addEventListener('auth-expired', () => {
+    currentPage = 'auth';
     ScanProgressManager.stop();
     store.reset();
-    navigateToAuth();
+    AuthPage.render();
   });
   
   window.addEventListener('logout', () => {
+    currentPage = 'auth';
     ScanProgressManager.stop();
-    navigateToAuth();
+    updateUrl({});
+    AuthPage.render();
   });
   
   window.addEventListener('navigate-libraries', async () => {
-    router.navigate(router.routes.libraries);
+    currentPage = 'libraries';
+    store.setCurrentLibrary(null);
+    store.setSelectedMedia(null);
+    store.setCurrentPath('');
+    updateUrl({});
+    await LibrariesPage.init();
+    LibrariesPage.render();
   });
   
   window.addEventListener('navigate-library', async (e) => {
-    const library = e.detail;
-    router.navigate(router.routes.browser, { libraryId: library.id, path: '' });
+    currentPage = 'browser';
+    await BrowserPage.init(e.detail.id, { path: '' });
+    BrowserPage.render();
   });
-}
-
-function navigateToAuth() {
-  currentPage = 'auth';
-  if (currentPageInstance) currentPageInstance.unmount();
-  currentPageInstance = new AuthPage({});
-  currentPageInstance.mount(document.getElementById('app'));
-}
-
-async function navigateToLibraries() {
-  currentPage = 'libraries';
-  if (currentPageInstance) currentPageInstance.unmount();
-  currentPageInstance = new LibrariesPage({});
-  currentPageInstance.mount(document.getElementById('app'));
-  await currentPageInstance.loadLibraries();
-}
-
-async function navigateToBrowser(libraryId, path = '') {
-  currentPage = 'browser';
-  if (currentPageInstance) currentPageInstance.unmount();
-  currentPageInstance = new BrowserPage({});
-  currentPageInstance.mount(document.getElementById('app'));
-  await currentPageInstance.loadMedia(libraryId, { path });
 }
 
 document.addEventListener('DOMContentLoaded', initApp);
 
 window.showToast = showToast;
+window.updateUrl = updateUrl;

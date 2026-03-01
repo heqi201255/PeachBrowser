@@ -1,7 +1,9 @@
 const { exec, spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
-const config = require('../config.json');
+const { getConfig } = require('../config');
+
+const config = getConfig();
 
 let thumbnailQueue = [];
 let isProcessing = false;

@@ -50,6 +50,9 @@ function createTables() {
       username TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
       is_admin INTEGER DEFAULT 0,
+      must_change_password INTEGER DEFAULT 0,
+      login_attempts INTEGER DEFAULT 0,
+      locked_until DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       last_login DATETIME
     )
@@ -171,6 +174,10 @@ function createTables() {
       FOREIGN KEY (user_id) REFERENCES users(id)  ON DELETE CASCADE
     )
   `);
+  
+  addColumnIfNotExists('users', 'must_change_password', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('users', 'login_attempts', 'INTEGER DEFAULT 0');
+  addColumnIfNotExists('users', 'locked_until', 'DATETIME');
   
   createIndexIfNotExists('idx_media_library', 'media_files(library_id)');
   createIndexIfNotExists('idx_media_md5', 'media_files(content_md5)');

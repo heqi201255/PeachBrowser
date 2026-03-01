@@ -1,7 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const config = require('../config.json');
+const { getConfig } = require('../config');
+
+const config = getConfig();
 
 function getFileType(extension) {
   const ext = extension.toLowerCase();

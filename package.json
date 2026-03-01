@@ -2,10 +2,10 @@
   "name": "peach-browser",
   "version": "1.0.0",
   "description": "Media file management and browsing web application",
-  "main": "server/index.js",
+  "main": "server/app.js",
   "scripts": {
-    "start": "node server/index.js",
-    "dev": "node server/index.js"
+    "start": "node server/app.js",
+    "dev": "node server/app.js"
   },
   "dependencies": {
     "sql.js": "^1.10.2",
