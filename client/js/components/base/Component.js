@@ -78,5 +78,3 @@ class Component {
     return this.el ? Array.from(this.el.querySelectorAll(selector)) : [];
   }
 }
-
-module.exports = Component;

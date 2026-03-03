@@ -5,69 +5,70 @@ const path = require('path');
 const fs = require('fs');
 const { authMiddleware } = require('../middleware/auth');
 const { asyncHandler, AppError } = require('../middleware/errors');
+const { validatePositiveInteger } = require('../middleware/validation');
 const mediaService = require('../services/media.service');
 const tagService = require('../services/tag.service');
 const mediaRepo = require('../repositories/media.repo');
 const libraryRepo = require('../repositories/library.repo');
 
 router.get('/:id', authMiddleware, asyncHandler(async (req, res) => {
-  const mediaId = parseInt(req.params.id);
+  const mediaId = validatePositiveInteger(req.params.id, 'media ID');
   const media = mediaService.getMediaDetail(mediaId, req.userId);
   res.json(media);
 }));
 
 router.delete('/:id', authMiddleware, asyncHandler(async (req, res) => {
-  const mediaId = parseInt(req.params.id);
+  const mediaId = validatePositiveInteger(req.params.id, 'media ID');
   const result = await mediaService.deleteMedia(mediaId, req.userId);
   res.json(result);
 }));
 
 router.post('/:id/play', authMiddleware, asyncHandler(async (req, res) => {
-  const mediaId = parseInt(req.params.id);
+  const mediaId = validatePositiveInteger(req.params.id, 'media ID');
   const { position, completed } = req.body;
   const result = mediaService.updatePlayProgress(mediaId, req.userId, position, completed);
   res.json(result);
 }));
 
 router.get('/:id/like', authMiddleware, asyncHandler(async (req, res) => {
-  const mediaId = parseInt(req.params.id);
+  const mediaId = validatePositiveInteger(req.params.id, 'media ID');
   const result = mediaService.getLikeStatus(mediaId, req.userId);
   res.json(result);
 }));
 
 router.post('/:id/like', authMiddleware, asyncHandler(async (req, res) => {
-  const mediaId = parseInt(req.params.id);
+  const mediaId = validatePositiveInteger(req.params.id, 'media ID');
   const result = mediaService.toggleLike(mediaId, req.userId);
   res.json(result);
 }));
 
 router.get('/:id/rating', authMiddleware, asyncHandler(async (req, res) => {
-  const mediaId = parseInt(req.params.id);
+  const mediaId = validatePositiveInteger(req.params.id, 'media ID');
   const result = mediaService.getRating(mediaId, req.userId);
   res.json(result);
 }));
 
 router.post('/:id/rating', authMiddleware, asyncHandler(async (req, res) => {
-  const mediaId = parseInt(req.params.id);
+  const mediaId = validatePositiveInteger(req.params.id, 'media ID');
   const result = mediaService.setRating(mediaId, req.userId, req.body.rating);
   res.json(result);
 }));
 
 router.post('/:id/tags', authMiddleware, asyncHandler(async (req, res) => {
-  const mediaId = parseInt(req.params.id);
+  const mediaId = validatePositiveInteger(req.params.id, 'media ID');
   const tag = tagService.addTag(mediaId, req.userId, req.body.tagName);
   res.json(tag);
 }));
 
 router.delete('/:id/tags/:tagId', authMiddleware, asyncHandler(async (req, res) => {
-  const mediaId = parseInt(req.params.id);
-  const tagId = parseInt(req.params.tagId);
+  const mediaId = validatePositiveInteger(req.params.id, 'media ID');
+  const tagId = validatePositiveInteger(req.params.tagId, 'tag ID');
   const result = tagService.removeTag(mediaId, req.userId, tagId);
   res.json(result);
 }));
 
 router.get('/:id/preview', authMiddleware, asyncHandler(async (req, res) => {
-  const mediaId = parseInt(req.params.id);
+  const mediaId = validatePositiveInteger(req.params.id, 'media ID');
   const timeSeconds = parseFloat(req.query.time) || 0;
   
   const media = mediaRepo.findById(mediaId);

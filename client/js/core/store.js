@@ -20,6 +20,7 @@ const store = {
   likedOnly: false,
   flattenMode: false,
   isLoading: false,
+  language: i18n.detectLanguage(),
   listeners: [],
   
   subscribe(listener) {
@@ -126,7 +127,14 @@ const store = {
     this.likedOnly = false;
     this.flattenMode = false;
     this.notify();
+  },
+  
+  setLanguage(lang) {
+    this.language = i18n.setLanguage(lang);
+    this.notify();
+  },
+  
+  getLanguage() {
+    return this.language;
   }
 };
-
-module.exports = store;

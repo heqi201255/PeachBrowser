@@ -1,5 +1,3 @@
-const { escapeHtml, formatDuration, formatFileSize, getFileIcon } = require('../../utils/format');
-
 class MediaCard extends Component {
   constructor(props) {
     super(props);
@@ -98,5 +96,3 @@ class MediaCard extends Component {
     this.setState({ is_liked });
   }
 }
-
-module.exports = MediaCard;

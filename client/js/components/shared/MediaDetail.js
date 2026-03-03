@@ -1,5 +1,3 @@
-const { escapeHtml } = require('../../utils/format');
-
 class MediaDetail extends Component {
   constructor(props) {
     super(props);
@@ -198,5 +196,3 @@ function formatFileSize(bytes) {
   }
   return `${size.toFixed(1)} ${units[unitIndex]}`;
 }
-
-module.exports = MediaDetail;

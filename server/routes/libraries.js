@@ -6,8 +6,10 @@ const fs = require('fs');
 const { authMiddleware } = require('../middleware/auth');
 const { asyncHandler, AppError } = require('../middleware/errors');
 const libraryService = require('../services/library.service');
+const mediaService = require('../services/media.service');
 const libraryRepo = require('../repositories/library.repo');
 const config = require('../config');
+const { isPathSafe } = require('../utils/path');
 
 const upload = multer({ dest: 'data/uploads/' });
 
@@ -49,7 +51,7 @@ router.get('/:id/media', authMiddleware, asyncHandler(async (req, res) => {
   const libraryId = parseInt(req.params.id);
   const { page = 1, pageSize, type, tag, search, path: currentPath = '', recursive = 'false', liked } = req.query;
   
-  const result = libraryService.getMediaList(libraryId, req.userId, {
+  const result = mediaService.getMediaList(libraryId, req.userId, {
     page: parseInt(page),
     pageSize: pageSize ? parseInt(pageSize) : config.getConfig().pagination.defaultPageSize,
     type,
@@ -124,16 +126,27 @@ router.get('/:id/directories', authMiddleware, asyncHandler(async (req, res) => 
 router.get('/:id/thumbnails/:path(*)', authMiddleware, asyncHandler(async (req, res) => {
   const libraryId = parseInt(req.params.id);
   
+  if (isNaN(libraryId) || libraryId <= 0) {
+    throw new AppError('Invalid library ID', 400, 'VALIDATION_ERROR');
+  }
+  
   const library = libraryService.checkAccess(req.userId, libraryId);
   if (!library) {
     throw new AppError('Library not found', 404, 'NOT_FOUND');
   }
   
   const decodedPath = decodeURIComponent(req.params.path);
+  
+  // Use isPathSafe for security check
+  if (!isPathSafe(decodedPath, config.getConfig().thumbnails.path)) {
+    throw new AppError('Invalid path', 403, 'FORBIDDEN');
+  }
+  
   const thumbnailPath = path.join(config.getConfig().thumbnails.path, library.name, decodedPath);
   const resolvedPath = path.resolve(thumbnailPath);
   const resolvedBase = path.resolve(config.getConfig().thumbnails.path, library.name);
   
+  // Double-check with resolved paths
   if (!resolvedPath.startsWith(resolvedBase)) {
     throw new AppError('Invalid path', 403, 'FORBIDDEN');
   }
@@ -148,16 +161,27 @@ router.get('/:id/thumbnails/:path(*)', authMiddleware, asyncHandler(async (req, 
 router.get('/:id/files/:path(*)', authMiddleware, asyncHandler(async (req, res) => {
   const libraryId = parseInt(req.params.id);
   
+  if (isNaN(libraryId) || libraryId <= 0) {
+    throw new AppError('Invalid library ID', 400, 'VALIDATION_ERROR');
+  }
+  
   const library = libraryService.checkAccess(req.userId, libraryId);
   if (!library) {
     throw new AppError('Library not found', 404, 'NOT_FOUND');
   }
   
   const decodedPath = decodeURIComponent(req.params.path);
+  
+  // Use isPathSafe for security check
+  if (!isPathSafe(decodedPath, library.path)) {
+    throw new AppError('Invalid path', 403, 'FORBIDDEN');
+  }
+  
   const filePath = path.join(library.path, decodedPath);
   const resolvedPath = path.resolve(filePath);
   const resolvedBase = path.resolve(library.path);
   
+  // Double-check with resolved paths
   if (!resolvedPath.startsWith(resolvedBase)) {
     throw new AppError('Invalid path', 403, 'FORBIDDEN');
   }

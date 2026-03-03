@@ -1,5 +1,3 @@
-const { escapeHtml } = require('../../utils/format');
-
 class TagList extends Component {
   constructor(props) {
     super(props);
@@ -80,5 +78,3 @@ class TagList extends Component {
     this.setState({ tags });
   }
 }
-
-module.exports = TagList;

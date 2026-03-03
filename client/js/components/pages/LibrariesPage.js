@@ -1,8 +1,3 @@
-const Component = require('../base/Component');
-const { escapeHtml } = require('../../utils/format');
-const store = require('../../core/store');
-const api = require('../../core/api');
-
 class LibrariesPage extends Component {
   constructor(props) {
     super(props);
@@ -10,6 +5,7 @@ class LibrariesPage extends Component {
       showAddModal: false,
       showUserManageModal: false,
       showChangePasswordModal: false,
+      showSettingsModal: false,
       users: [],
       newPassword: '',
       confirmPassword: ''
@@ -18,7 +14,7 @@ class LibrariesPage extends Component {
 
   render() {
     const { libraries, isAdmin, user } = store;
-    const { showAddModal, showUserManageModal, showChangePasswordModal } = this.state;
+    const { showAddModal, showUserManageModal, showChangePasswordModal, showSettingsModal } = this.state;
     
     return `
       <div class="app-layout">
@@ -27,10 +23,10 @@ class LibrariesPage extends Component {
             <h2>PeachBrowser</h2>
           </div>
           <div class="sidebar-section">
-            <h3>导航</h3>
+            <h3>${t('navigation.libraries')}</h3>
             <ul class="sidebar-nav">
               <li class="active">
-                <span>📚</span> 媒体库
+                <span>📚</span> ${t('navigation.libraries')}
               </li>
             </ul>
           </div>
@@ -38,17 +34,18 @@ class LibrariesPage extends Component {
         
         <main class="main-content">
           <header class="header">
-            <h1>媒体库</h1>
+            <h1>${t('libraries.title')}</h1>
             <div class="header-actions">
+              <button class="btn btn-secondary btn-small settings-btn" title="${t('header.settings')}">⚙️</button>
               <div class="user-menu">
                 <button class="user-menu-btn">
                   <span>👤</span>
-                  <span>${escapeHtml(user?.username || 'User')}${isAdmin ? ' (管理员)' : ''}</span>
+                  <span>${escapeHtml(user?.username || 'User')}${isAdmin ? ` (${t('user.admin')})` : ''}</span>
                 </button>
                 <div class="user-menu-dropdown">
-                  ${isAdmin ? '<button class="user-manage-btn">用户管理</button>' : ''}
-                  <button class="change-password-btn">修改密码</button>
-                  <button class="logout-btn">退出登录</button>
+                  ${isAdmin ? `<button class="user-manage-btn">${t('user.userManagement')}</button>` : ''}
+                  <button class="change-password-btn">${t('user.changePassword')}</button>
+                  <button class="logout-btn">${t('user.logout')}</button>
                 </div>
               </div>
             </div>
@@ -58,8 +55,8 @@ class LibrariesPage extends Component {
             ${libraries.length === 0 ? `
               <div class="empty-state">
                 <div class="icon">📁</div>
-                <h3>还没有媒体库</h3>
-                <p>${isAdmin ? '点击右下角按钮添加你的第一个媒体库' : '请联系管理员添加媒体库'}</p>
+                <h3>${t('libraries.noLibraries')}</h3>
+                <p>${isAdmin ? t('libraries.addLibraryHint') : t('libraries.contactAdmin')}</p>
               </div>
             ` : `
               <div class="libraries-grid">
@@ -69,7 +66,7 @@ class LibrariesPage extends Component {
             
             ${isAdmin ? `
               <button class="btn btn-primary add-library-btn" style="position:fixed;bottom:24px;right:24px;">
-                + 添加媒体库
+                + ${t('libraries.addLibrary')}
               </button>
             ` : ''}
           </div>
@@ -79,6 +76,7 @@ class LibrariesPage extends Component {
       ${showAddModal ? this._renderAddModal() : ''}
       ${showUserManageModal ? this._renderUserManageModal() : ''}
       ${showChangePasswordModal ? this._renderChangePasswordModal() : ''}
+      ${showSettingsModal ? this._renderSettingsModal() : ''}
     `;
   }
 
@@ -95,8 +93,8 @@ class LibrariesPage extends Component {
         </div>
         ${isAdmin ? `
           <div class="actions">
-            <button class="btn btn-secondary btn-small rescan-btn" data-id="${lib.id}">重新扫描</button>
-            <button class="btn btn-danger btn-small delete-btn" data-id="${lib.id}">删除</button>
+            <button class="btn btn-secondary btn-small rescan-btn" data-id="${lib.id}">${t('libraries.rescan')}</button>
+            <button class="btn btn-danger btn-small delete-btn" data-id="${lib.id}">${t('libraries.delete')}</button>
           </div>
         ` : ''}
       </div>
@@ -108,27 +106,27 @@ class LibrariesPage extends Component {
       <div class="modal-overlay add-modal">
         <div class="modal">
           <div class="modal-header">
-            <h2>添加媒体库</h2>
+            <h2>${t('libraries.addLibrary')}</h2>
             <button class="btn-icon close-modal-btn">✕</button>
           </div>
           <div class="modal-body">
             <div class="form-group">
-              <label for="libraryName">媒体库名称</label>
-              <input type="text" id="libraryName" placeholder="例如：我的视频库">
+              <label for="libraryName">${t('libraries.libraryName')}</label>
+              <input type="text" id="libraryName" placeholder="${t('libraries.namePlaceholder')}">
             </div>
             <div class="form-group">
-              <label for="libraryPath">文件夹路径</label>
+              <label for="libraryPath">${t('libraries.libraryPath')}</label>
               <div class="folder-picker">
-                <input type="text" id="libraryPath" placeholder="例如：/Users/xxx/Videos">
+                <input type="text" id="libraryPath" placeholder="${t('libraries.pathPlaceholder')}">
               </div>
               <p style="font-size:12px;color:var(--text-secondary);margin-top:8px;">
-                请输入本地文件夹的完整路径
+                ${t('libraries.pathHint')}
               </p>
             </div>
           </div>
           <div class="modal-footer">
-            <button class="btn btn-secondary cancel-add-btn">取消</button>
-            <button class="btn btn-primary confirm-add-btn">添加</button>
+            <button class="btn btn-secondary cancel-add-btn">${t('confirm.cancel')}</button>
+            <button class="btn btn-primary confirm-add-btn">${t('confirm.add')}</button>
           </div>
         </div>
       </div>
@@ -192,26 +190,66 @@ class LibrariesPage extends Component {
       <div class="modal-overlay change-password-modal">
         <div class="modal">
           <div class="modal-header">
-            <h2>修改密码</h2>
+            <h2>${t('password.title')}</h2>
             <button class="btn-icon close-change-password-btn">✕</button>
           </div>
           <div class="modal-body">
             <div class="form-group">
-              <label for="oldPassword">原密码</label>
-              <input type="password" id="oldPassword" placeholder="请输入原密码">
+              <label for="oldPassword">${t('password.oldPassword')}</label>
+              <input type="password" id="oldPassword" placeholder="${t('password.oldPasswordPlaceholder')}">
             </div>
             <div class="form-group">
-              <label for="newPassword">新密码</label>
-              <input type="password" id="newPassword" placeholder="请输入新密码（至少4位）">
+              <label for="newPassword">${t('password.newPassword')}</label>
+              <input type="password" id="newPassword" placeholder="${t('password.newPasswordPlaceholder')}">
             </div>
             <div class="form-group">
-              <label for="confirmPassword">确认新密码</label>
-              <input type="password" id="confirmPassword" placeholder="请再次输入新密码">
+              <label for="confirmPassword">${t('password.confirmPassword')}</label>
+              <input type="password" id="confirmPassword" placeholder="${t('password.confirmPasswordPlaceholder')}">
             </div>
           </div>
           <div class="modal-footer">
-            <button class="btn btn-secondary cancel-change-password-btn">取消</button>
-            <button class="btn btn-primary confirm-change-password-btn">确认修改</button>
+            <button class="btn btn-secondary cancel-change-password-btn">${t('password.cancel')}</button>
+            <button class="btn btn-primary confirm-change-password-btn">${t('password.confirmChange')}</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  _renderSettingsModal() {
+    const languages = [
+      { code: 'auto', name: t('settings.languageAuto') },
+      { code: 'zh-CN', name: t('settings.languageZh') },
+      { code: 'en-US', name: t('settings.languageEn') },
+      { code: 'ja-JP', name: t('settings.languageJa') }
+    ];
+    
+    const currentLang = store.getLanguage();
+    
+    return `
+      <div class="modal-overlay settings-modal">
+        <div class="modal">
+          <div class="modal-header">
+            <h2>${t('settings.title')}</h2>
+            <button class="btn-icon close-settings-btn">✕</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="language-select">${t('settings.language')}</label>
+              <select id="language-select" class="language-select">
+                ${languages.map(lang => `
+                  <option value="${lang.code}" ${currentLang === lang.code || (lang.code === 'auto' && !localStorage.getItem('peechbrowser_language')) ? 'selected' : ''}>
+                    ${lang.name}
+                  </option>
+                `).join('')}
+              </select>
+              <p style="font-size:12px;color:var(--text-secondary);margin-top:8px;">
+                ${t('settings.languageHint')}
+              </p>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary close-settings-btn">${t('confirm.close')}</button>
           </div>
         </div>
       </div>
@@ -222,6 +260,7 @@ class LibrariesPage extends Component {
     this._bindUserMenuEvents();
     this._bindLibraryCardEvents();
     this._bindModalEvents();
+    this._bindSettingsModalEvents();
   }
 
   _bindUserMenuEvents() {
@@ -250,7 +289,7 @@ class LibrariesPage extends Component {
       e.stopPropagation();
       try {
         const users = await api.getUsers();
-        this.setState({ showUserManageModal: true, users });
+        this.setState({ users, showUserManageModal: true });
       } catch (err) {
         window.showToast?.(err.message, 'error');
       }
@@ -259,6 +298,10 @@ class LibrariesPage extends Component {
     this.$('.change-password-btn')?.addEventListener('click', (e) => {
       e.stopPropagation();
       this.setState({ showChangePasswordModal: true });
+    });
+    
+    this.$('.settings-btn')?.addEventListener('click', () => {
+      this.setState({ showSettingsModal: true });
     });
   }
 
@@ -281,7 +324,7 @@ class LibrariesPage extends Component {
         const id = parseInt(btn.dataset.id);
         try {
           await api.syncLibrary(id);
-          window.showToast?.('开始同步', 'success');
+          window.showToast?.(t('scan.syncStarted'), 'success');
         } catch (err) {
           window.showToast?.(err.message, 'error');
         }
@@ -292,13 +335,13 @@ class LibrariesPage extends Component {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
         const id = parseInt(btn.dataset.id);
-        if (confirm('确定要删除这个媒体库吗？这只会删除数据库记录，不会删除实际文件。')) {
+        if (confirm(t('libraries.deleteConfirm'))) {
           try {
             await api.deleteLibrary(id);
             const libraries = await api.getLibraries();
             store.setLibraries(libraries);
             this.update();
-            window.showToast?.('媒体库已删除', 'success');
+            window.showToast?.(t('messages.libraryDeleted'), 'success');
           } catch (err) {
             window.showToast?.(err.message, 'error');
           }
@@ -334,7 +377,7 @@ class LibrariesPage extends Component {
       const path = this.$('#libraryPath')?.value?.trim();
       
       if (!name || !path) {
-        window.showToast?.('请填写完整信息', 'error');
+        window.showToast?.(t('messages.fillCompleteInfo'), 'error');
         return;
       }
       
@@ -344,7 +387,7 @@ class LibrariesPage extends Component {
         const libraries = await api.getLibraries();
         store.setLibraries(libraries);
         this.update();
-        window.showToast?.('媒体库创建成功，正在扫描...', 'success');
+        window.showToast?.(t('scan.syncSuccess'), 'success');
       } catch (err) {
         window.showToast?.(err.message, 'error');
       }
@@ -375,7 +418,7 @@ class LibrariesPage extends Component {
           await api.updateUserLibraries(parseInt(userId), libraryIds);
         }
         
-        window.showToast?.('用户权限已更新', 'success');
+        window.showToast?.(t('messages.userPermissionsUpdated'), 'success');
         this.setState({ showUserManageModal: false });
       } catch (err) {
         window.showToast?.(err.message, 'error');
@@ -386,12 +429,12 @@ class LibrariesPage extends Component {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
         const userId = parseInt(btn.dataset.userId);
-        if (confirm('确定要删除这个用户吗？')) {
+        if (confirm(t('messages.deleteUserConfirm'))) {
           try {
             await api.deleteUser(userId);
             const users = this.state.users.filter(u => u.id !== userId);
             this.setState({ users });
-            window.showToast?.('用户已删除', 'success');
+            window.showToast?.(t('messages.userDeleted'), 'success');
           } catch (err) {
             window.showToast?.(err.message, 'error');
           }
@@ -418,27 +461,53 @@ class LibrariesPage extends Component {
       const confirmPassword = this.$('#confirmPassword')?.value;
       
       if (!oldPassword || !newPassword || !confirmPassword) {
-        window.showToast?.('请填写所有密码字段', 'error');
+        window.showToast?.(t('password.fillAll'), 'error');
         return;
       }
       
       if (newPassword.length < 4) {
-        window.showToast?.('新密码至少4位', 'error');
+        window.showToast?.(t('password.minLength'), 'error');
         return;
       }
       
       if (newPassword !== confirmPassword) {
-        window.showToast?.('两次输入的新密码不一致', 'error');
+        window.showToast?.(t('password.notMatch'), 'error');
         return;
       }
       
       try {
         await api.changePassword(oldPassword, newPassword);
-        window.showToast?.('密码修改成功', 'success');
+        window.showToast?.(t('password.success'), 'success');
         this.setState({ showChangePasswordModal: false });
       } catch (err) {
         window.showToast?.(err.message, 'error');
       }
+    });
+  }
+
+  _bindSettingsModalEvents() {
+    const modal = this.$('.settings-modal');
+    if (!modal) return;
+    
+    this.$$('.close-settings-btn', modal).forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.setState({ showSettingsModal: false });
+      });
+    });
+    
+    this.$('.language-select', modal)?.addEventListener('change', (e) => {
+      const lang = e.target.value;
+      if (lang === 'auto') {
+        localStorage.removeItem('peechbrowser_language');
+        store.setLanguage(i18n.detectLanguage());
+      } else {
+        store.setLanguage(lang);
+      }
+      this.setState({ showSettingsModal: false });
+      setTimeout(() => {
+        this.update();
+        this.bindEvents();
+      }, 50);
     });
   }
 
@@ -452,5 +521,3 @@ class LibrariesPage extends Component {
     }
   }
 }
-
-module.exports = LibrariesPage;

@@ -1,8 +1,3 @@
-const Component = require('../base/Component');
-const { escapeHtml, formatDuration, formatFileSize, isMobile, getFileIcon } = require('../../utils/format');
-const store = require('../../core/store');
-const api = require('../../core/api');
-
 class BrowserPage extends Component {
   constructor(props) {
     super(props);
@@ -13,8 +8,10 @@ class BrowserPage extends Component {
       directoryTree: [],
       previewVolume: 0.5,
       savedTreeScrollTop: 0,
-      lazyObserver: null
+      lazyObserver: null,
+      showSettingsModal: false
     };
+    this.loadingLibraryId = null;
   }
 
   render() {
@@ -47,35 +44,35 @@ class BrowserPage extends Component {
           </div>
           
           <div class="sidebar-section">
-            <h3>筛选</h3>
+            <h3>${t('navigation.filter')}</h3>
             <ul class="sidebar-nav">
               <li class="${filterType === 'all' && !store.likedOnly ? 'active' : ''}" data-type="all">
-                <span>📁</span> 全部
+                <span>📁</span> ${t('navigation.all')}
               </li>
               <li class="${store.likedOnly ? 'active' : ''}" data-filter="liked">
-                <span>♥</span> 收藏
+                <span>♥</span> ${t('navigation.liked')}
               </li>
               <li class="${filterType === 'video' && !store.likedOnly ? 'active' : ''}" data-type="video">
-                <span>🎬</span> 视频
+                <span>🎬</span> ${t('navigation.videos')}
               </li>
               <li class="${filterType === 'image' && !store.likedOnly ? 'active' : ''}" data-type="image">
-                <span>🖼</span> 图片
+                <span>🖼</span> ${t('navigation.images')}
               </li>
               <li class="${filterType === 'audio' && !store.likedOnly ? 'active' : ''}" data-type="audio">
-                <span>🎵</span> 音频
+                <span>🎵</span> ${t('navigation.audios')}
               </li>
             </ul>
           </div>
           
           <div class="sidebar-section">
-            <h3>目录</h3>
+            <h3>${t('navigation.directories')}</h3>
             <ul class="sidebar-nav directory-tree">
               ${this._renderDirectoryTree(this.state.directoryTree, '')}
             </ul>
           </div>
           
           <div class="sidebar-section">
-            <h3>标签</h3>
+            <h3>${t('navigation.tags')}</h3>
             <ul class="sidebar-nav">
               ${tags.map(tag => `
                 <li class="${currentTag === tag.name ? 'active' : ''}" data-tag="${escapeHtml(tag.name)}">
@@ -90,37 +87,38 @@ class BrowserPage extends Component {
         <main class="main-content ${mobile ? '' : 'has-detail-panel'}">
           <header class="header">
             <div style="display:flex;align-items:center;gap:12px;">
-              ${showBackButton ? `<button class="btn btn-secondary btn-small back-btn">← 返回</button>` : ''}
+              ${showBackButton ? `<button class="btn btn-secondary btn-small back-btn">← ${t('confirm.previous')}</button>` : ''}
               <div>
-                <h1>${currentLibrary ? escapeHtml(currentLibrary.name) : '媒体库'}</h1>
+                <h1>${currentLibrary ? escapeHtml(currentLibrary.name) : t('navigation.libraries')}</h1>
                 ${currentPath ? `<div style="font-size:12px;color:var(--text-secondary);">${escapeHtml(currentPath)}</div>` : ''}
               </div>
             </div>
-            <div class="header-actions">
-              <div class="volume-control">
-                <div class="volume-slider-container">
-                  <input type="range" class="volume-slider" min="0" max="100" value="${this.state.previewVolume * 100}">
+              <div class="header-actions">
+                <div class="volume-control">
+                  <div class="volume-slider-container">
+                    <input type="range" class="volume-slider" min="0" max="100" value="${this.state.previewVolume * 100}">
+                  </div>
+                  <button class="volume-btn" title="🔊">🔊</button>
                 </div>
-                <button class="volume-btn" title="预览音量">🔊</button>
-              </div>
-              <label class="flatten-mode-label">
-                <input type="checkbox" class="flatten-mode-checkbox" ${store.flattenMode ? 'checked' : ''}>
-                <span>展开模式</span>
-              </label>
-              <button class="btn btn-secondary btn-small sync-btn">🔄 同步</button>
-              <div class="search-box">
-                <input type="text" class="search-input" placeholder="搜索文件..." value="${escapeHtml(searchQuery)}">
-              </div>
-              <div class="user-menu">
-                <button class="user-menu-btn">
-                  <span>👤</span>
-                  <span>${escapeHtml(store.user?.username || 'User')}</span>
-                </button>
-                <div class="user-menu-dropdown">
-                  <button class="logout-btn">退出登录</button>
+                <label class="flatten-mode-label">
+                  <input type="checkbox" class="flatten-mode-checkbox" ${store.flattenMode ? 'checked' : ''}>
+                  <span>${t('header.flattenMode')}</span>
+                </label>
+                <button class="btn btn-secondary btn-small sync-btn">${t('header.sync')}</button>
+                <div class="search-box">
+                  <input type="text" class="search-input" placeholder="${t('header.searchPlaceholder')}" value="${escapeHtml(searchQuery)}">
+                </div>
+                <button class="btn btn-secondary btn-small settings-btn" title="${t('header.settings')}">⚙️</button>
+                <div class="user-menu">
+                  <button class="user-menu-btn">
+                    <span>👤</span>
+                    <span>${escapeHtml(store.user?.username || 'User')}</span>
+                  </button>
+                  <div class="user-menu-dropdown">
+                    <button class="logout-btn">${t('user.logout')}</button>
+                  </div>
                 </div>
               </div>
-            </div>
           </header>
           
           <div class="content-wrapper">
@@ -129,8 +127,8 @@ class BrowserPage extends Component {
                 ${directories.length === 0 && mediaList.length === 0 ? `
                   <div class="empty-state">
                     <div class="icon">📭</div>
-                    <h3>没有找到媒体文件</h3>
-                    <p>拖拽文件到这里上传，或等待扫描完成</p>
+                    <h3>${t('media.noMediaFound')}</h3>
+                    <p>${t('media.dragDropHint')}</p>
                   </div>
                 ` : `
                   <div class="media-grid">
@@ -147,6 +145,8 @@ class BrowserPage extends Component {
           </div>
         </main>
       </div>
+      
+      ${this.state.showSettingsModal ? this._renderSettingsModal() : ''}
     `;
   }
 
@@ -236,7 +236,7 @@ class BrowserPage extends Component {
           <h4 title="${escapeHtml(media.filename)}">${escapeHtml(media.filename)}</h4>
           <div class="meta">
             ${media.width && media.height ? `${media.width}×${media.height}` : ''}
-            ${media.play_count ? `• 播放${media.play_count}次` : ''}
+            ${media.play_count ? `• ${t('media.playCount').replace('{count}', media.play_count)}` : ''}
           </div>
           ${ratingHtml}
         </div>
@@ -249,11 +249,11 @@ class BrowserPage extends Component {
       return `
         <div class="detail-panel show">
           <div class="detail-panel-header">
-            <h3>文件详情</h3>
+            <h3>${t('media.details')}</h3>
           </div>
           <div class="detail-panel-content">
             <div class="empty-detail" style="color:var(--text-secondary);font-size:14px;">
-              未选择任何文件。请在左侧选择一个文件查看详情。
+              ${t('media.noMediaSelected')}
             </div>
           </div>
         </div>
@@ -267,38 +267,38 @@ class BrowserPage extends Component {
     return `
       <div class="detail-panel show">
         <div class="detail-panel-header">
-          <h3>文件详情</h3>
+          <h3>${t('media.details')}</h3>
           <button class="btn-icon close-detail-btn">✕</button>
         </div>
         <div class="detail-panel-content">
           <div class="detail-section">
-            <h4>评分</h4>
+            <h4>${t('media.rating')}</h4>
             <div class="rating-input">${ratingStars}</div>
           </div>
           
           <div class="detail-section">
-            <h4>收藏</h4>
+            <h4>${t('media.like')}</h4>
             <button class="like-btn-detail ${media.is_liked ? 'liked' : ''}">
-              <span class="heart">♥</span> ${media.is_liked ? '已收藏' : '添加收藏'}
+              <span class="heart">♥</span> ${media.is_liked ? t('media.liked') : t('media.addLike')}
             </button>
           </div>
           
           <div class="detail-section">
-            <h4>文件名</h4>
+            <h4>${t('media.filename')}</h4>
             <div class="value">${escapeHtml(media.filename)}</div>
           </div>
           
           <div class="detail-section">
-            <h4>路径</h4>
+            <h4>${t('media.path')}</h4>
             <div class="value" style="font-size:12px;word-break:break-all;">${escapeHtml(media.relative_path)}</div>
           </div>
           
-          ${media.width && media.height ? `<div class="detail-section"><h4>分辨率</h4><div class="value">${media.width} × ${media.height}</div></div>` : ''}
-          ${media.duration ? `<div class="detail-section"><h4>时长</h4><div class="value">${formatDuration(media.duration)}</div></div>` : ''}
-          ${media.file_size ? `<div class="detail-section"><h4>文件大小</h4><div class="value">${formatFileSize(media.file_size)}</div></div>` : ''}
+          ${media.width && media.height ? `<div class="detail-section"><h4>${t('media.resolution')}</h4><div class="value">${media.width} × ${media.height}</div></div>` : ''}
+          ${media.duration ? `<div class="detail-section"><h4>${t('media.duration')}</h4><div class="value">${formatDuration(media.duration)}</div></div>` : ''}
+          ${media.file_size ? `<div class="detail-section"><h4>${t('media.fileSize')}</h4><div class="value">${formatFileSize(media.file_size)}</div></div>` : ''}
           
           <div class="detail-section">
-            <h4>标签</h4>
+            <h4>${t('media.tags')}</h4>
             <div class="tag-list">
               ${(media.tags || []).map((tag, index) => `
                 <span class="tag">
@@ -308,13 +308,13 @@ class BrowserPage extends Component {
               `).join('')}
             </div>
             <div class="add-tag-input">
-              <input type="text" class="new-tag-input" placeholder="添加标签...">
-              <button class="btn btn-secondary btn-small add-tag-btn">添加</button>
+              <input type="text" class="new-tag-input" placeholder="${t('media.addTag')}">
+              <button class="btn btn-secondary btn-small add-tag-btn">${t('confirm.add')}</button>
             </div>
           </div>
           
           <div class="detail-section">
-            <button class="btn btn-danger delete-media-btn" style="width:100%;">删除文件</button>
+            <button class="btn btn-danger delete-media-btn" style="width:100%;">${t('media.delete')}</button>
           </div>
         </div>
       </div>
@@ -324,18 +324,58 @@ class BrowserPage extends Component {
   _renderPagination(pagination) {
     return `
       <div class="pagination">
-        <button ${pagination.page <= 1 ? 'disabled' : ''} data-page="${pagination.page - 1}">上一页</button>
+        <button ${pagination.page <= 1 ? 'disabled' : ''} data-page="${pagination.page - 1}">${t('pagination.previous')}</button>
         <span class="page-info">
-          第 ${pagination.page} / ${pagination.totalPages} 页 (共 ${pagination.total} 项)
+          ${t('pagination.pageInfo', { current: pagination.page, total: pagination.totalPages, items: pagination.total })}
         </span>
-        <button ${pagination.page >= pagination.totalPages ? 'disabled' : ''} data-page="${pagination.page + 1}">下一页</button>
+        <button ${pagination.page >= pagination.totalPages ? 'disabled' : ''} data-page="${pagination.page + 1}">${t('pagination.next')}</button>
         <div class="page-size-select">
           <select class="page-size-select">
-            <option value="20" ${pagination.pageSize === 20 ? 'selected' : ''}>20/页</option>
-            <option value="50" ${pagination.pageSize === 50 ? 'selected' : ''}>50/页</option>
-            <option value="72" ${pagination.pageSize === 72 ? 'selected' : ''}>72/页</option>
-            <option value="100" ${pagination.pageSize === 100 ? 'selected' : ''}>100/页</option>
+            <option value="20" ${pagination.pageSize === 20 ? 'selected' : ''}>${t('pagination.pageSize', { size: 20 })}</option>
+            <option value="50" ${pagination.pageSize === 50 ? 'selected' : ''}>${t('pagination.pageSize', { size: 50 })}</option>
+            <option value="72" ${pagination.pageSize === 72 ? 'selected' : ''}>${t('pagination.pageSize', { size: 72 })}</option>
+            <option value="100" ${pagination.pageSize === 100 ? 'selected' : ''}>${t('pagination.pageSize', { size: 100 })}</option>
           </select>
+        </div>
+      </div>
+    `;
+  }
+
+  _renderSettingsModal() {
+    const languages = [
+      { code: 'auto', name: t('settings.languageAuto') },
+      { code: 'zh-CN', name: t('settings.languageZh') },
+      { code: 'en-US', name: t('settings.languageEn') },
+      { code: 'ja-JP', name: t('settings.languageJa') }
+    ];
+    
+    const currentLang = store.getLanguage();
+    
+    return `
+      <div class="modal-overlay settings-modal">
+        <div class="modal">
+          <div class="modal-header">
+            <h2>${t('settings.title')}</h2>
+            <button class="btn-icon close-settings-btn">✕</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="language-select">${t('settings.language')}</label>
+              <select id="language-select" class="language-select">
+                ${languages.map(lang => `
+                  <option value="${lang.code}" ${currentLang === lang.code || (lang.code === 'auto' && !localStorage.getItem('peechbrowser_language')) ? 'selected' : ''}>
+                    ${lang.name}
+                  </option>
+                `).join('')}
+              </select>
+              <p style="font-size:12px;color:var(--text-secondary);margin-top:8px;">
+                ${t('settings.languageHint')}
+              </p>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary close-settings-btn">${t('confirm.close')}</button>
+          </div>
         </div>
       </div>
     `;
@@ -347,6 +387,7 @@ class BrowserPage extends Component {
     this._bindMediaCardEvents();
     this._bindDetailPanelEvents();
     this._bindPaginationEvents();
+    this._bindSettingsModalEvents();
     this._initLazyLoad();
   }
 
@@ -397,7 +438,7 @@ class BrowserPage extends Component {
     this.$('.sync-btn')?.addEventListener('click', async () => {
       if (!store.currentLibrary) return;
       try {
-        window.showToast?.('正在同步...', 'success');
+        window.showToast?.(t('scan.syncing'), 'success');
         const result = await api.syncLibrary(store.currentLibrary.id);
         window.showToast?.(result.message, 'success');
         this._refresh();
@@ -422,6 +463,38 @@ class BrowserPage extends Component {
       api.setToken(null);
       store.reset();
       window.dispatchEvent(new CustomEvent('logout'));
+    });
+    
+    this.$('.settings-btn')?.addEventListener('click', () => {
+      this.setState({ showSettingsModal: true });
+    });
+    
+    const volumeSlider = this.$('.volume-slider');
+    const volumeBtn = this.$('.volume-btn');
+    
+    volumeSlider?.addEventListener('input', (e) => {
+      const volume = parseInt(e.target.value) / 100;
+      this.setState({ previewVolume: volume });
+      this._updatePreviewVolume(volume);
+    });
+    
+    volumeBtn?.addEventListener('click', () => {
+      const sliderContainer = this.$('.volume-slider-container');
+      sliderContainer?.classList.toggle('show');
+    });
+    
+    // Close volume slider when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.volume-control')) {
+        const sliderContainer = this.$('.volume-slider-container');
+        sliderContainer?.classList.remove('show');
+      }
+    });
+  }
+
+  _updatePreviewVolume(volume) {
+    this.$$('video, audio').forEach(el => {
+      el.volume = volume;
     });
   }
 
@@ -458,7 +531,7 @@ class BrowserPage extends Component {
           btn.classList.toggle('liked', result.liked);
           store.updateMediaItem(mediaId, { is_liked: result.liked });
         } catch (err) {
-          window.showToast?.('操作失败', 'error');
+          window.showToast?.(t('messages.operationFailed'), 'error');
         }
       });
     });
@@ -470,6 +543,75 @@ class BrowserPage extends Component {
         this._refresh({ path: dirPath, page: 1 });
       });
     });
+    
+    // Hover preview for video/audio
+    if (!isMobile()) {
+      this.$$('.media-thumbnail[data-preview]').forEach(thumbnail => {
+        const previewType = thumbnail.dataset.preview;
+        const previewDiv = thumbnail.querySelector('.preview-video, .preview-audio');
+        if (!previewDiv) return;
+        
+        const src = previewDiv.dataset.src;
+        let mediaEl = null;
+        
+        thumbnail.addEventListener('mouseenter', () => {
+          if (this.state.hoverTimeout) {
+            clearTimeout(this.state.hoverTimeout);
+          }
+          
+          this.state.hoverTimeout = setTimeout(() => {
+            if (previewType === 'video') {
+              mediaEl = document.createElement('video');
+              mediaEl.src = src;
+              mediaEl.muted = this.state.previewVolume === 0;
+              mediaEl.loop = true;
+              mediaEl.volume = this.state.previewVolume;
+              mediaEl.play().catch(() => {});
+              
+              // Add seek on mouse move
+              let isSeeking = false;
+              thumbnail.addEventListener('mousemove', (e) => {
+                if (!mediaEl || isSeeking) return;
+                const rect = thumbnail.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const percent = Math.max(0, Math.min(1, x / rect.width));
+                if (mediaEl.duration) {
+                  mediaEl.currentTime = percent * mediaEl.duration;
+                }
+              });
+              
+            } else if (previewType === 'audio') {
+              mediaEl = document.createElement('audio');
+              mediaEl.src = src;
+              mediaEl.volume = this.state.previewVolume;
+              mediaEl.play().catch(() => {});
+            }
+            
+            if (mediaEl) {
+              mediaEl.className = 'hover-preview-media';
+              previewDiv.innerHTML = '';
+              previewDiv.appendChild(mediaEl);
+              this.state.hoverVideo = mediaEl;
+            }
+          }, 300);
+        });
+        
+        thumbnail.addEventListener('mouseleave', () => {
+          if (this.state.hoverTimeout) {
+            clearTimeout(this.state.hoverTimeout);
+            this.state.hoverTimeout = null;
+          }
+          
+          if (mediaEl) {
+            mediaEl.pause();
+            mediaEl.remove();
+            mediaEl = null;
+          }
+          previewDiv.innerHTML = '';
+          this.state.hoverVideo = null;
+        });
+      });
+    }
   }
 
   _bindDetailPanelEvents() {
@@ -487,7 +629,7 @@ class BrowserPage extends Component {
           store.selectedMedia.rating = rating;
           store.updateMediaItem(store.selectedMedia.id, { rating });
           this.update();
-          window.showToast?.('评分已保存', 'success');
+          window.showToast?.(t('messages.ratingSaved'), 'success');
         } catch (err) {
           window.showToast?.(err.message, 'error');
         }
@@ -524,13 +666,13 @@ class BrowserPage extends Component {
     
     this.$('.delete-media-btn')?.addEventListener('click', async () => {
       if (!store.selectedMedia) return;
-      if (!confirm('确定要删除这个文件吗？')) return;
+      if (!confirm(t('media.deleteConfirm'))) return;
       
       try {
         await api.deleteMedia(store.selectedMedia.id);
         store.setSelectedMedia(null);
         this._refresh();
-        window.showToast?.('文件已删除', 'success');
+        window.showToast?.(t('messages.fileDeleted'), 'success');
       } catch (err) {
         window.showToast?.(err.message, 'error');
       }
@@ -547,6 +689,32 @@ class BrowserPage extends Component {
     
     this.$('.page-size-select')?.addEventListener('change', (e) => {
       this._refresh({ pageSize: parseInt(e.target.value, 10), page: 1 });
+    });
+  }
+
+  _bindSettingsModalEvents() {
+    const modal = this.$('.settings-modal');
+    if (!modal) return;
+    
+    this.$$('.close-settings-btn', modal).forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.setState({ showSettingsModal: false });
+      });
+    });
+    
+    this.$('.language-select', modal)?.addEventListener('change', (e) => {
+      const lang = e.target.value;
+      if (lang === 'auto') {
+        localStorage.removeItem('peechbrowser_language');
+        store.setLanguage(i18n.detectLanguage());
+      } else {
+        store.setLanguage(lang);
+      }
+      this.setState({ showSettingsModal: false });
+      setTimeout(() => {
+        this.update();
+        this.bindEvents();
+      }, 50);
     });
   }
 
@@ -628,7 +796,20 @@ class BrowserPage extends Component {
   }
 
   async loadMedia(libraryId, params = {}) {
-    store.setCurrentLibrary(store.libraries.find(l => l.id === libraryId));
+    // Cancel any pending load
+    if (this._currentLoadId && this._currentLoadId !== libraryId) {
+      this._currentLoadId = libraryId;
+      return;
+    }
+    this._currentLoadId = libraryId;
+    
+    const currentLoadId = libraryId;
+    
+    // Set current library for display
+    const library = store.libraries.find(l => l.id === libraryId);
+    if (library) {
+      store.setCurrentLibrary(library);
+    }
     
     try {
       const data = await api.getMedia(libraryId, {
@@ -642,16 +823,37 @@ class BrowserPage extends Component {
         liked: store.likedOnly ? 'true' : ''
       });
       
+      // Check if this is still the current load
+      if (this._currentLoadId !== currentLoadId) {
+        return;
+      }
+      
       store.setMediaList(data.media, data.directories, data.currentPath, data.pagination);
       store.setCurrentLibrary(data.library);
       
       const tags = await api.getTags(libraryId);
+      
+      // Check again after async operation
+      if (this._currentLoadId !== currentLoadId) {
+        return;
+      }
+      
       store.setTags(tags);
       
       const dirs = await api.getDirectoryStructure(libraryId, '');
+      
+      // Check one more time
+      if (this._currentLoadId !== currentLoadId) {
+        return;
+      }
+      
       this.state.directoryTree = dirs;
     } catch (err) {
       console.error('Failed to load media:', err);
+    } finally {
+      if (this._currentLoadId === currentLoadId) {
+        this._currentLoadId = null;
+      }
     }
   }
 
@@ -667,5 +869,3 @@ class BrowserPage extends Component {
     }
   }
 }
-
-module.exports = BrowserPage;

@@ -1,7 +1,7 @@
 const { exec, spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
-const { getConfig } = require('../config');
+const { getConfig } = require(path.join(__dirname, 'config'));
 
 const config = getConfig();
 

@@ -222,5 +222,3 @@ const api = {
     return `${API_BASE}/media/${mediaId}/preview?time=${timeSeconds}&token=${authToken}`;
   }
 };
-
-module.exports = api;

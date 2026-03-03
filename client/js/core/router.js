@@ -1,5 +1,3 @@
-const store = require('./store');
-
 const routes = {
   auth: 'auth',
   libraries: 'libraries',
@@ -81,13 +79,3 @@ function init() {
     }));
   });
 }
-
-module.exports = {
-  routes,
-  navigate,
-  back,
-  parseUrl,
-  getCurrentRoute,
-  getCurrentParams,
-  init
-};

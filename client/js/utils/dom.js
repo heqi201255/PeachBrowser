@@ -47,12 +47,3 @@ function hideElement(el) {
 function toggleElement(el, show) {
   if (el) el.classList.toggle('hidden', !show);
 }
-
-module.exports = {
-  $,
-  $$,
-  createElement,
-  showElement,
-  hideElement,
-  toggleElement
-};

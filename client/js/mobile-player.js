@@ -40,7 +40,7 @@ const MobilePlayer = {
       </div>
       <div class="video-overlay" id="videoOverlay">
         <div class="video-info">
-          <h3 id="videoTitle">${this.escapeHtml(this.currentMedia.filename)}</h3>
+          <h3 id="videoTitle">${escapeHtml(this.currentMedia.filename)}</h3>
         </div>
         <div class="time-display">
           <span id="currentTime">0:00</span>
@@ -217,7 +217,7 @@ const MobilePlayer = {
       hideThumbAndShowVideo();
       const totalEl = document.getElementById('totalTime');
       if (totalEl && isFinite(video.duration)) {
-        totalEl.textContent = this.formatDuration(video.duration);
+        totalEl.textContent = formatDuration(video.duration);
       }
     };
 
@@ -335,7 +335,7 @@ const MobilePlayer = {
 
     if (!preview || !previewImg) return;
 
-    previewTime.textContent = this.formatDuration(timeSeconds);
+    previewTime.textContent = formatDuration(timeSeconds);
     preview.classList.add('show');
 
     if (this.previewDebounceTimer) {
@@ -435,8 +435,8 @@ const MobilePlayer = {
 
     const currentEl = document.getElementById('currentTime');
     const totalEl = document.getElementById('totalTime');
-    if (currentEl) currentEl.textContent = this.formatDuration(current);
-    if (totalEl && isFinite(duration)) totalEl.textContent = this.formatDuration(duration);
+    if (currentEl) currentEl.textContent = formatDuration(current);
+    if (totalEl && isFinite(duration)) totalEl.textContent = formatDuration(duration);
   },
 
   bindEvents() {
@@ -812,21 +812,6 @@ const MobilePlayer = {
     this.previewCache.clear();
   },
 
-  formatDuration(seconds) {
-    const sNum = Number(seconds) || 0;
-    const h = Math.floor(sNum / 3600);
-    const m = Math.floor((sNum % 3600) / 60);
-    const s = Math.floor(sNum % 60);
-    if (h > 0) {
-      return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-    }
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  },
-
-  escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
+  // Use formatDuration from utils/format.js
+  // Use escapeHtml from utils/format.js
 };

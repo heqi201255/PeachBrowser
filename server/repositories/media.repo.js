@@ -200,6 +200,62 @@ function getExistingFiles(libraryId) {
   return new Map(rows.map(row => [row.relative_path, { content_md5: row.content_md5, file_size: row.file_size }]));
 }
 
+/**
+ * Insert a new media file record
+ * @param {Object} params - Media file parameters
+ * @returns {Object} - Insert result with lastInsertRowid
+ */
+function insertMediaFile({ libraryId, relativePath, filename, extension, fileSize, contentMd5, fileType }) {
+  const database = db.getDb();
+  return database.prepare(`
+    INSERT OR IGNORE INTO media_files (library_id, relative_path, filename, extension, file_size, content_md5, file_type)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(libraryId, relativePath, filename, extension, fileSize, contentMd5, fileType);
+}
+
+/**
+ * Get media ID by library ID and relative path
+ * @param {number} libraryId - Library ID
+ * @param {string} relativePath - Relative path
+ * @returns {Object|undefined} - Media record with id
+ */
+function getMediaByPath(libraryId, relativePath) {
+  return db.getDb().prepare(`
+    SELECT id FROM media_files WHERE library_id = ? AND relative_path = ?
+  `).get(libraryId, relativePath);
+}
+
+/**
+ * Get or create media metadata
+ * @param {number} mediaId - Media ID
+ * @param {Object} meta - Metadata object
+ * @returns {Object} - Insert result
+ */
+function upsertMediaMetadata(mediaId, meta) {
+  const database = db.getDb();
+  return database.prepare(`
+    INSERT OR IGNORE INTO media_metadata (media_id, width, height, duration, fps, bitrate, codec)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(mediaId, meta.width, meta.height, meta.duration, meta.fps, meta.bitrate, meta.codec);
+}
+
+/**
+ * Get media metadata by media ID
+ * @param {number} mediaId - Media ID
+ * @returns {Object|undefined} - Metadata record
+ */
+function getMediaMetadata(mediaId) {
+  return db.getDb().prepare('SELECT id, duration FROM media_metadata WHERE media_id = ?').get(mediaId);
+}
+
+/**
+ * Update last scanned timestamp for a library
+ * @param {number} libraryId - Library ID
+ */
+function updateLibraryLastScanned(libraryId) {
+  db.getDb().prepare('UPDATE libraries SET last_scanned = datetime("now") WHERE id = ?').run(libraryId);
+}
+
 module.exports = {
   findById,
   findByLibrary,
@@ -212,5 +268,10 @@ module.exports = {
   findCorrupted,
   updateThumbnail,
   updateCorrupted,
-  getExistingFiles
+  getExistingFiles,
+  insertMediaFile,
+  getMediaByPath,
+  upsertMediaMetadata,
+  getMediaMetadata,
+  updateLibraryLastScanned
 };

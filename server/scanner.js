@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { getConfig } = require('../config');
+const { getConfig } = require(path.join(__dirname, 'config'));
 
 const config = getConfig();
 

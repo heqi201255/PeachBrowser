@@ -114,7 +114,7 @@ const DesktopPlayer = {
 
     this.videoElement.addEventListener('loadedmetadata', () => {
       const totalEl = document.getElementById('desktopTotalTime');
-      if (totalEl) totalEl.textContent = this.formatDuration(this.videoElement.duration);
+      if (totalEl) totalEl.textContent = formatDuration(this.videoElement.duration);
     });
   },
 
@@ -177,7 +177,7 @@ const DesktopPlayer = {
       }
 
       if (previewTime) {
-        previewTime.textContent = this.formatDuration(time);
+        previewTime.textContent = formatDuration(time);
       }
 
       if (this.previewDebounce) {
@@ -274,7 +274,7 @@ const DesktopPlayer = {
     }
 
     const currentEl = document.getElementById('desktopCurrentTime');
-    if (currentEl) currentEl.textContent = this.formatDuration(current);
+    if (currentEl) currentEl.textContent = formatDuration(current);
   },
 
   renderPlaylist() {
@@ -289,8 +289,8 @@ const DesktopPlayer = {
             : `<div class="placeholder">${item.file_type === 'video' ? '🎬' : item.file_type === 'audio' ? '🎵' : '🖼'}</div>`}
         </div>
         <div class="playlist-item-info">
-          <div class="playlist-item-title">${this.escapeHtml(item.filename)}</div>
-          <div class="playlist-item-meta">${item.duration ? this.formatDuration(item.duration) : ''}</div>
+          <div class="playlist-item-title">${escapeHtml(item.filename)}</div>
+          <div class="playlist-item-meta">${item.duration ? formatDuration(item.duration) : ''}</div>
         </div>
       </div>
     `).join('');
@@ -330,7 +330,7 @@ const DesktopPlayer = {
 
       <div class="detail-section">
         <h4>文件名</h4>
-        <div class="value">${this.escapeHtml(this.currentMedia.filename)}</div>
+        <div class="value">${escapeHtml(this.currentMedia.filename)}</div>
       </div>
 
       ${this.currentMedia.width && this.currentMedia.height ? `
@@ -343,21 +343,21 @@ const DesktopPlayer = {
       ${this.currentMedia.duration ? `
         <div class="detail-section">
           <h4>时长</h4>
-          <div class="value">${this.formatDuration(this.currentMedia.duration)}</div>
+          <div class="value">${formatDuration(this.currentMedia.duration)}</div>
         </div>
       ` : ''}
 
       ${this.currentMedia.codec ? `
         <div class="detail-section">
           <h4>编码</h4>
-          <div class="value">${this.escapeHtml(this.currentMedia.codec)}</div>
+          <div class="value">${escapeHtml(this.currentMedia.codec)}</div>
         </div>
       ` : ''}
 
       ${this.currentMedia.file_size ? `
         <div class="detail-section">
           <h4>大小</h4>
-          <div class="value">${this.formatFileSize(this.currentMedia.file_size)}</div>
+          <div class="value">${formatFileSize(this.currentMedia.file_size)}</div>
         </div>
       ` : ''}
 
@@ -366,7 +366,7 @@ const DesktopPlayer = {
         <div class="tag-list" id="tagList">
           ${(this.currentMedia.tags || []).map((tag, index) => `
             <span class="tag">
-              ${this.escapeHtml(tag)}
+              ${escapeHtml(tag)}
               <span class="remove" data-tag-index="${index}">✕</span>
             </span>
           `).join('')}
@@ -521,32 +521,7 @@ const DesktopPlayer = {
     this.previewCache.clear();
   },
 
-  formatDuration(seconds) {
-    const sNum = Number(seconds) || 0;
-    const h = Math.floor(sNum / 3600);
-    const m = Math.floor((sNum % 3600) / 60);
-    const s = Math.floor(sNum % 60);
-    if (h > 0) {
-      return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-    }
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  },
-
-  formatFileSize(bytes) {
-    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-    let unitIndex = 0;
-    let size = bytes;
-    while (size >= 1024 && unitIndex < units.length - 1) {
-      size /= 1024;
-      unitIndex++;
-    }
-    return `${size.toFixed(1)} ${units[unitIndex]}`;
-  },
-
-  escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
+  // Use formatDuration from utils/format.js
+  // Use formatFileSize from utils/format.js  
+  // Use escapeHtml from utils/format.js
 };

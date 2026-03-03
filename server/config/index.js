@@ -11,8 +11,20 @@ function loadConfig() {
   
   const jwtSecret = process.env.JWT_SECRET || rawConfig.jwt?.secret;
   
-  if (!jwtSecret || jwtSecret === 'peach-browser-secret-key-change-in-production') {
-    console.warn('\n[WARNING] Using default JWT secret. Set JWT_SECRET environment variable in production!\n');
+  // Security check for JWT secret in production
+  const isProduction = process.env.NODE_ENV === 'production';
+  const isDefaultSecret = !jwtSecret || jwtSecret === 'peach-browser-secret-key-change-in-production';
+  
+  if (isProduction && isDefaultSecret) {
+    throw new Error(
+      'CRITICAL: JWT_SECRET must be set to a secure random value in production. ' +
+      'Set the JWT_SECRET environment variable before starting the server.'
+    );
+  }
+  
+  if (isDefaultSecret) {
+    console.warn('\n[SECURITY WARNING] Using default JWT secret!');
+    console.warn('[SECURITY WARNING] Set JWT_SECRET environment variable in production!\n');
   }
   
   config = {

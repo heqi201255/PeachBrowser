@@ -116,53 +116,31 @@ async function scanLibraryAsync(libraryId, libraryName, libraryPath, userId) {
     console.log(`Found ${files.length} files in library ${libraryName}`);
     scanProgress.setStage(libraryId, 'processing', files.length);
     
-    const database = require('../database').getDb();
-    
-    const insertMedia = database.prepare(`
-      INSERT OR IGNORE INTO media_files (library_id, relative_path, filename, extension, file_size, content_md5, file_type)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
-    
-    const getMedia = database.prepare(`
-      SELECT id FROM media_files WHERE library_id = ? AND relative_path = ?
-    `);
-    
-    const insertMetadata = database.prepare(`
-      INSERT OR IGNORE INTO media_metadata (media_id, width, height, duration, fps, bitrate, codec)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
-    
+    const metadataService = require('./metadata');
     const thumbnailsToGenerate = [];
     let processedCount = 0;
     
     for (const file of files) {
       if (!file.isNew) continue;
       
-      insertMedia.run(
+      // Use repository method instead of direct database access
+      mediaRepo.insertMediaFile({
         libraryId,
-        file.relativePath,
-        file.filename,
-        file.extension,
-        file.fileSize,
-        file.contentMd5,
-        file.fileType
-      );
+        relativePath: file.relativePath,
+        filename: file.filename,
+        extension: file.extension,
+        fileSize: file.fileSize,
+        contentMd5: file.contentMd5,
+        fileType: file.fileType
+      });
       
-      const mediaRecord = getMedia.get(libraryId, file.relativePath);
+      const mediaRecord = mediaRepo.getMediaByPath(libraryId, file.relativePath);
       if (mediaRecord) {
-        let meta = database.prepare('SELECT id, duration FROM media_metadata WHERE media_id = ?').get(mediaRecord.id);
+        let meta = mediaRepo.getMediaMetadata(mediaRecord.id);
         if (!meta && (file.fileType === 'video' || file.fileType === 'image' || file.fileType === 'audio')) {
-          meta = await metadata.getMediaMetadata(file.fullPath);
+          meta = await metadataService.getMediaMetadata(file.fullPath);
           if (meta) {
-            insertMetadata.run(
-              mediaRecord.id,
-              meta.width,
-              meta.height,
-              meta.duration,
-              meta.fps,
-              meta.bitrate,
-              meta.codec
-            );
+            mediaRepo.upsertMediaMetadata(mediaRecord.id, meta);
           }
         }
         
@@ -196,7 +174,8 @@ async function scanLibraryAsync(libraryId, libraryName, libraryPath, userId) {
       }
     }
     
-    libraryRepo.updateLastScanned(libraryId);
+    // Use repository method
+    mediaRepo.updateLibraryLastScanned(libraryId);
     
     const corruptedFiles = mediaRepo.findCorrupted(libraryId);
     

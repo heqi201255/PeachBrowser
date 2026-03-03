@@ -1,11 +1,3 @@
-const router = require('./core/router');
-const store = require('./core/store');
-const api = require('./core/api');
-
-const AuthPage = require('./components/pages/AuthPage');
-const LibrariesPage = require('./components/pages/LibrariesPage');
-const BrowserPage = require('./components/pages/BrowserPage');
-
 let currentPage = null;
 let currentPageInstance = null;
 
@@ -60,10 +52,10 @@ const ScanProgressManager = {
     const p = progressList[0];
     const percent = p.total > 0 ? Math.round((p.current / p.total) * 100) : 0;
     const stageText = {
-      'scanning': '扫描文件中',
-      'processing': '处理文件中',
-      'thumbnails': '生成预览图中'
-    }[p.stage] || '处理中';
+      'scanning': t('scan.scanning'),
+      'processing': t('scan.processing'),
+      'thumbnails': t('scan.thumbnails')
+    }[p.stage] || t('scan.processingStage');
     
     const escapeHtml = (text) => {
       const div = document.createElement('div');
@@ -176,6 +168,13 @@ function setupEventListeners() {
     const library = e.detail;
     router.navigate(router.routes.browser, { libraryId: library.id, path: '' });
   });
+  
+  window.addEventListener('language-change', () => {
+    if (currentPageInstance && currentPageInstance.update) {
+      currentPageInstance.update();
+      currentPageInstance.bindEvents();
+    }
+  });
 }
 
 function navigateToAuth() {
@@ -195,6 +194,16 @@ async function navigateToLibraries() {
 
 async function navigateToBrowser(libraryId, path = '') {
   currentPage = 'browser';
+  
+  // Reset store state for new library navigation
+  store.setMediaList([], [], '', { page: 1, pageSize: 50, total: 0, totalPages: 0 });
+  store.setCurrentPath(path);
+  store.setCurrentTag(null);
+  store.setSearchQuery('');
+  store.setFilterType('all');
+  store.setLikedOnly(false);
+  store.setFlattenMode(false);
+  
   if (currentPageInstance) currentPageInstance.unmount();
   currentPageInstance = new BrowserPage({});
   currentPageInstance.mount(document.getElementById('app'));

@@ -5,24 +5,78 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PeachBrowser</title>
   <link rel="icon" type="image/png" href="assets/logo.png">
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=2">
+  <script>
+    (function() {
+      var savedLang = localStorage.getItem('peechbrowser_language');
+      if (savedLang) {
+        document.documentElement.lang = savedLang;
+      } else {
+        var userLang = navigator.language || navigator.userLanguage;
+        userLang = userLang ? userLang.toLowerCase() : '';
+        if (userLang.startsWith('zh') || userLang.includes('cn')) {
+          document.documentElement.lang = 'zh-CN';
+        } else if (userLang.startsWith('ja') || userLang.includes('jp')) {
+          document.documentElement.lang = 'ja-JP';
+        } else {
+          document.documentElement.lang = 'en-US';
+        }
+      }
+    })();
+  </script>
 </head>
 <body>
   <div id="app"></div>
   
-  <script src="js/core/api.js"></script>
-  <script src="js/core/store.js"></script>
-  <script src="js/core/router.js"></script>
-  <script src="js/components/base/Component.js"></script>
-  <script src="js/utils/format.js"></script>
-  <script src="js/utils/dom.js"></script>
-  <script src="js/components/pages/AuthPage.js"></script>
-  <script src="js/components/pages/LibrariesPage.js"></script>
-  <script src="js/components/pages/BrowserPage.js"></script>
-  <script src="js/components/shared/MediaCard.js"></script>
-  <script src="js/components/shared/Rating.js"></script>
-  <script src="js/components/shared/MediaDetail.js"></script>
-  <script src="js/components/shared/TagList.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/i18n/zh-CN.js?v=2"></script>
+  <script src="js/i18n/en-US.js?v=2"></script>
+  <script src="js/i18n/ja-JP.js?v=2"></script>
+  <script>
+    window.zhCN = zhCN;
+    window.enUS = enUS;
+    window.jaJP = jaJP;
+  </script>
+  <script src="js/i18n/index.js?v=2"></script>
+  <script>
+    window.i18n = { t, setLanguage, detectLanguage, getAvailableLanguages, getCurrentLanguage, translations };
+  </script>
+  
+  <script src="js/utils/format.js?v=2"></script>
+  <script src="js/utils/dom.js?v=2"></script>
+  <script src="js/utils/i18n.js?v=2"></script>
+  <script>
+    window.i18nUtils = { t };
+  </script>
+  
+  <script src="js/core/api.js?v=2"></script>
+  <script>
+    window.api = api;
+  </script>
+  
+  <script src="js/core/store.js?v=2"></script>
+  <script>
+    window.store = store;
+  </script>
+  
+  <script src="js/core/router.js?v=2"></script>
+  <script>
+    window.router = { routes, navigate, back, parseUrl, getCurrentRoute, getCurrentParams, init };
+  </script>
+  
+  <script src="js/components/base/Component.js?v=2"></script>
+  <script>
+    window.Component = Component;
+  </script>
+  
+  <script src="js/components/shared/Rating.js?v=2"></script>
+  <script src="js/components/shared/MediaDetail.js?v=2"></script>
+  <script src="js/components/shared/TagList.js?v=2"></script>
+  <script src="js/components/shared/MediaCard.js?v=2"></script>
+  
+  <script src="js/components/pages/AuthPage.js?v=2"></script>
+  <script src="js/components/pages/LibrariesPage.js?v=2"></script>
+  <script src="js/components/pages/BrowserPage.js?v=2"></script>
+  
+  <script src="js/app.js?v=2"></script>
 </body>
 </html>

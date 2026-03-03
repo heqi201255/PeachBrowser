@@ -63,13 +63,3 @@ function getFileIcon(type) {
   };
   return icons[type] || icons.other;
 }
-
-module.exports = {
-  escapeHtml,
-  formatDuration,
-  formatFileSize,
-  debounce,
-  throttle,
-  isMobile,
-  getFileIcon
-};

@@ -1,6 +1,3 @@
-const Component = require('../base/Component');
-const { escapeHtml } = require('../../utils/format');
-
 class AuthPage extends Component {
   constructor(props) {
     super(props);
@@ -60,8 +57,6 @@ class AuthPage extends Component {
       try {
         this.setState({ error: null });
         
-        const api = require('../../core/api');
-        
         if (this.state.isLogin) {
           await api.login(username, password);
         } else {
@@ -69,7 +64,6 @@ class AuthPage extends Component {
         }
         
         const user = await api.getCurrentUser();
-        const store = require('../../core/store');
         store.setUser({ id: user.id, username: user.username }, user.is_admin);
         
         window.dispatchEvent(new CustomEvent('auth-success'));
@@ -83,5 +77,3 @@ class AuthPage extends Component {
     });
   }
 }
-
-module.exports = AuthPage;

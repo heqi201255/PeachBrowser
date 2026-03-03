@@ -1,5 +1,3 @@
-const { escapeHtml } = require('../../utils/format');
-
 class Rating extends Component {
   constructor(props) {
     super(props);
@@ -33,5 +31,3 @@ class Rating extends Component {
     this.setState({ rating });
   }
 }
-
-module.exports = Rating;
